@@ -249,10 +249,17 @@ func InsertProduct(product products.Product) (products.Product, error) {
 	row := db.QueryRow(sqlInsertProduct, product.Name, product.Desc, product.Price)
 	var id int
 	err := row.Scan(&id)
-
 	if err != nil {
 		return products.Product{}, err
 	}
+
+	for category_id, _ := range product.Category {
+		err := AddCategoryToProduct(id, category_id)
+		if err != nil {
+			return products.Product{}, err
+		}
+	}
+
 	product.Id = id
 	return product, nil
 }
@@ -269,6 +276,35 @@ func UpdateProduct(product products.Product) (products.Product, error) {
 	if err != nil {
 		return products.Product{}, err
 	}
+	var categoriesToDelete []int
+	var categoriesToAdd []int
+	oldCategories, err := GetProductCategoriesIds(product.Id)
+	if err != nil {
+		return products.Product{}, err
+	}
+	for category_id, _ := range product.Category {
+		if !contains(oldCategories, category_id) {
+			categoriesToAdd = append(categoriesToAdd, category_id)
+		}
+	}
+	for _, category_id := range oldCategories {
+		if !contains(categoriesToAdd, category_id) {
+			categoriesToDelete = append(categoriesToDelete, category_id)
+		}
+	}
+	for _, category_id := range categoriesToAdd {
+		err := AddCategoryToProduct(product.Id, category_id)
+		if err != nil {
+			return products.Product{}, err
+		}
+	}
+	for _, category_id := range categoriesToDelete {
+		err := DeleteCategoryFromProductById(category_id)
+		if err != nil {
+			return products.Product{}, err
+		}
+	}
+
 	return product, nil
 }
 
@@ -284,6 +320,191 @@ func DeleteProduct(id int) error {
 		return err
 	}
 	return nil
+}
+
+// category
+func GetCategories() ([]string, error) {
+	db := GetDBInstance()
+	rows, err := db.Query("SELECT * FROM categories")
+	if err != nil {
+		// handle this error better than this
+		return nil, err
+	}
+	var categoriesArr []string
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		var id int
+		err = rows.Scan(&id, &name)
+		if err != nil {
+			// handle this error
+			return nil, err
+		}
+		categoriesArr = append(categoriesArr, name)
+	}
+	// get any error encountered during iteration
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	return categoriesArr, nil
+}
+
+func InsertCategory(category string) error {
+	db := GetDBInstance()
+
+	sqlInsertCategory := `
+	INSERT INTO categories (category_name)
+	VALUES ($1)`
+
+	_, err := db.Exec(sqlInsertCategory, category)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetCategoryId(category string) (int, error) {
+	db := GetDBInstance()
+
+	sqlGetCategoryId := `
+	SELECT category_id
+	FROM categories
+	WHERE category_name = $1`
+
+	row := db.QueryRow(sqlGetCategoryId, category)
+	var id int
+	err := row.Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func GetProductCategoriesIds(product_id int) ([]int, error) {
+	db := GetDBInstance()
+	sqlProductCategories := `
+		select c.category_id, c.category_name 
+		from products_categories as pc
+		inner join products as p
+		on pc.product_id = p.id
+		inner join categories as c
+		on c.category_id = pc.category_id
+		where p.id = $1;`
+	rows, err := db.Query(sqlProductCategories, product_id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var categoriesIds []int
+	for rows.Next() {
+		var categoryId int
+		err = rows.Scan(&categoryId)
+
+		if err != nil {
+			return nil, err
+		}
+		categoriesIds = append(categoriesIds, categoryId)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return categoriesIds, nil
+}
+
+func GetProductCategoriesMap(product_id int) (map[int]string, error) {
+	db := GetDBInstance()
+	sqlProductCategories := `
+		select c.category_id,c.category_name 
+		from products_categories as pc
+		inner join products as p
+		on pc.product_id = p.id
+		inner join categories as c
+		on c.category_id = pc.category_id
+		where p.id = $1;`
+	rows, err := db.Query(sqlProductCategories, product_id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	categoriesMap := make(map[int]string)
+	for rows.Next() {
+		var categoryId int
+		var categoryName string
+		err = rows.Scan(&categoryId, &categoryName)
+
+		if err != nil {
+			return nil, err
+		}
+		categoriesMap[categoryId] = categoryName
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return categoriesMap, nil
+}
+
+func AddCategoriesToProduct(categories_id []int, product_id int) error {
+	for _, category_id := range categories_id {
+		err := AddCategoryToProduct(product_id, category_id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func AddCategoryToProduct(productId int, categoryId int) error {
+	db := GetDBInstance()
+
+	sqlInsertCategory := `
+	INSERT INTO products_categories (product_id, category_id)
+	VALUES ($1, $2)`
+
+	_, err := db.Exec(sqlInsertCategory, productId, categoryId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteCategoryFromProductByName(category string) error {
+	db := GetDBInstance()
+
+	sqlDeleteCategory := `
+	DELETE FROM products_categories WHERE category_id = $1 AND product_id = $2`
+
+	_, err := db.Exec(sqlDeleteCategory, category)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteCategoryFromProductById(categoryId int) error {
+	db := GetDBInstance()
+
+	sqlDeleteCategory := `
+	DELETE FROM products_categories WHERE category_id = $1 AND product_id = $2`
+
+	_, err := db.Exec(sqlDeleteCategory, categoryId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func contains(arr []int, elem int) bool {
+	for _, v := range arr {
+		if v == elem {
+			return true
+		}
+	}
+	return false
 }
 
 const (

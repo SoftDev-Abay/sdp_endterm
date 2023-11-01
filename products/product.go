@@ -5,7 +5,7 @@ type Product struct {
 	Name     string
 	Desc     string
 	Price    int
-	Category []string
+	Category map[int]string
 }
 
 func (p *Product) SetName(name string) {
@@ -16,6 +16,6 @@ func (p *Product) SetPrice(price int) {
 	p.Price = price
 }
 
-func (p *Product) GetDetails() (string, int, string, []string) {
+func (p *Product) GetDetails() (string, int, string, map[int]string) {
 	return p.Name, p.Price, p.Desc, p.Category
 }

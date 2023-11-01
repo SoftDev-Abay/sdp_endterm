@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	db "shop/db_f"
-	"shop/users"
+	"shop/products"
 )
 
 // "bufio"
@@ -24,48 +24,85 @@ func main() {
 	// } else {
 	// 	fmt.Println("User not found")
 	// }
-	var usersArr []users.IUser
-	usersArr, err_users := db.GetUsers()
-	if err_users != nil {
-		fmt.Println(err_users)
-	} else {
-		fmt.Println("Get users successfully")
-		fmt.Println(usersArr)
-	}
-	for _, v := range usersArr {
-		fmt.Println(v)
-	}
-
-	user, userIdErr := db.GetUserById(4)
-	if userIdErr != nil {
-		fmt.Println(userIdErr)
-	} else {
-		fmt.Println("Get user by id successfully")
-		fmt.Println(user)
-	}
-	user.SetUserName("Damir")
-	user.SetUserPassword("Damir123")
-	newUser, updateErr := db.UpdateUser(user)
-	if updateErr != nil {
-		fmt.Println(updateErr)
-	} else {
-		fmt.Println("Update user successfully")
-		fmt.Println(newUser)
-	}
-
-	// product := products.Product{
-	// 	Name:  "laptop",
-	// 	Desc:  "modern laptop, 16GB RAM, 1TB SSD",
-	// 	Price: 100,
+	// var usersArr []users.IUser
+	// usersArr, err_users := db.GetUsers()
+	// if err_users != nil {
+	// 	fmt.Println(err_users)
+	// } else {
+	// 	fmt.Println("Get users successfully")
+	// 	fmt.Println(usersArr)
 	// }
-	// product, err := db.InsertProduct(product)
+	// for _, v := range usersArr {
+	// 	fmt.Println(v)
+	// }
+
+	// user, userIdErr := db.GetUserById(4)
+	// if userIdErr != nil {
+	// 	fmt.Println(userIdErr)
+	// } else {
+	// 	fmt.Println("Get user by id successfully")
+	// 	fmt.Println(user)
+	// }
+	// user.SetUserName("Damir")
+	// user.SetUserPassword("Damir123")
+	// newUser, updateErr := db.UpdateUser(user)
+	// if updateErr != nil {
+	// 	fmt.Println(updateErr)
+	// } else {
+	// 	fmt.Println("Update user successfully")
+	// 	fmt.Println(newUser)
+	// }
+
+	// err := db.InsertCategory("pens")
 	// if err != nil {
 	// 	fmt.Println(err)
 	// } else {
-	// 	fmt.Println("Insert product successfully")
-	// 	fmt.Println(product)
+	// 	fmt.Println("Insert category successfully")
 	// }
 
+	// categories, err := db.GetCategories()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// } else {
+	// 	fmt.Println("Get categories successfully")
+	// 	fmt.Println(categories)
+	// }
+
+	// categories, err = db.GetProductCategories(1)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// } else {
+	// 	fmt.Println("GetProductCategories successfully")
+	// 	fmt.Print(categories)
+	// }
+
+	product := products.Product{
+		Name:  "iphoe 12 pro",
+		Desc:  "modern phone, cool resolution, 128GB",
+		Price: 3000,
+		Category: map[int]string{
+			1: "clothes",
+			4: "mobile phones",
+			5: "food",
+		},
+	}
+	product, err := db.InsertProduct(product)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("Insert product successfully")
+		fmt.Println(product)
+	}
+
+	// db.AddCategoryToProduct(1, 5)
+
+	// categoriesMap, err := db.GetProductCategoriesMap(1)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// } else {
+	// 	fmt.Println("Get successfully")
+	// 	fmt.Println(categoriesMap)
+	// }
 	// product := products.Product{
 	// 	Id:    3,
 	// 	Name:  "laptop",
