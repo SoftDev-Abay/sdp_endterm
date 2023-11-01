@@ -24,16 +24,33 @@ func main() {
 	// } else {
 	// 	fmt.Println("User not found")
 	// }
-	var users []users.IUser
-	users, err_users := db.GetUsers()
+	var usersArr []users.IUser
+	usersArr, err_users := db.GetUsers()
 	if err_users != nil {
 		fmt.Println(err_users)
 	} else {
 		fmt.Println("Get users successfully")
-		fmt.Println(users)
+		fmt.Println(usersArr)
 	}
-	for _, v := range users {
-		fmt.Println(v.GetDetails())
+	for _, v := range usersArr {
+		fmt.Println(v)
+	}
+
+	user, userIdErr := db.GetUserById(4)
+	if userIdErr != nil {
+		fmt.Println(userIdErr)
+	} else {
+		fmt.Println("Get user by id successfully")
+		fmt.Println(user)
+	}
+	user.SetUserName("Damir")
+	user.SetUserPassword("Damir123")
+	newUser, updateErr := db.UpdateUser(user)
+	if updateErr != nil {
+		fmt.Println(updateErr)
+	} else {
+		fmt.Println("Update user successfully")
+		fmt.Println(newUser)
 	}
 
 	// product := products.Product{

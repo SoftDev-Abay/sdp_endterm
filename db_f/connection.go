@@ -68,9 +68,9 @@ func GetUsers() ([]users.IUser, error) {
 		}
 		var user users.IUser
 		if isAdmin {
-			user = users.Admin{Id: id, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
+			user = &users.Admin{Id: id, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
 		} else {
-			user = users.Customer{Id: id, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
+			user = &users.Customer{Id: id, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
 
 		}
 		usersArr = append(usersArr, user)
@@ -99,7 +99,7 @@ func InsertUser(user users.IUser) error {
 		_, err_user = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, false)
 
 	default:
-		return errors.New("Invalid user type")
+		return errors.New("invalid user type")
 	}
 
 	if err_user != nil {
@@ -127,13 +127,81 @@ func CheckUser(username string, userpassword string) users.IUser {
 		return nil
 	case nil:
 		if isAdmin {
-			return &users.Admin{userId, username, userpassword, email, phoneNum}
+			return &users.Admin{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
 		} else {
-			return &users.Customer{userId, username, userpassword, email, phoneNum}
+			return &users.Customer{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
 		}
 	default:
 		panic(err)
 	}
+}
+
+func GetUserById(id int) (users.IUser, error) {
+	db := GetDBInstance()
+
+	sqlGetUserById := `
+	SELECT *
+	FROM users
+	WHERE user_id = $1`
+	var userId int
+	var username string
+	var userpassword string
+	var email string
+	var phoneNum string
+	var isAdmin bool
+
+	row := db.QueryRow(sqlGetUserById, id)
+	switch err := row.Scan(&userId, &username, &userpassword, &email, &phoneNum, &isAdmin); err {
+	case sql.ErrNoRows:
+		fmt.Println("No rows were returned!")
+		return nil, err
+	case nil:
+		if isAdmin {
+			return &users.Admin{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}, nil
+		} else {
+			return &users.Customer{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}, nil
+		}
+	default:
+		panic(err)
+	}
+}
+
+func UpdateUser(user users.IUser) (users.IUser, error) {
+	db := GetDBInstance()
+	sqlUpdateUser := `UPDATE users SET username = $2, password = $3, email = $4, phone_num = $5, admin = $6 WHERE user_id = $1`
+	id, username, password, email, phoneNum := user.GetDetails()
+	var isAdmin bool
+	switch user.(type) {
+	case *users.Admin:
+		isAdmin = true
+	case *users.Customer:
+		isAdmin = false
+	}
+
+	_, err := db.Exec(sqlUpdateUser, id, username, password, email, phoneNum, isAdmin)
+	if err != nil {
+		return user, err
+	}
+	return user, nil
+}
+
+func GetProductById(id int) (products.Product, error) {
+	db := GetDBInstance()
+	var name string
+	var desc string
+	var price int
+	sqlGetUserById := `
+	SELECT *
+	FROM products
+	WHERE id = $1`
+
+	row := db.QueryRow(sqlGetUserById, id)
+	err := row.Scan(&name, &desc, &price)
+	if err != nil {
+		return products.Product{}, err
+	}
+	product := products.Product{Id: id, Name: name, Desc: desc, Price: price}
+	return product, nil
 }
 
 func GetProducts() ([]products.Product, error) {
