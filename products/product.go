@@ -1,20 +1,21 @@
 package products
 
-type product struct {
-	id       int
-	name     string
-	price    string
-	category []string
+type Product struct {
+	Id       int
+	Name     string
+	Desc     string
+	Price    int
+	Category []string
 }
 
-func (p *product) SetName(name string) {
-	p.name = name
+func (p *Product) SetName(name string) {
+	p.Name = name
 }
 
-func (p *product) SetPrice(price string) {
-	p.price = price
+func (p *Product) SetPrice(price int) {
+	p.Price = price
 }
 
-func (p *product) GetDetails() (string, string) {
-	return p.name, p.price
+func (p *Product) GetDetails() (string, int, string, []string) {
+	return p.Name, p.Price, p.Desc, p.Category
 }
