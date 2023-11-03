@@ -7,9 +7,6 @@ import (
 	db "shop/db_f"
 	"shop/products"
 	"strconv"
-
-	//"shop/products"
-	//"strconv"
 	"strings"
 )
 
@@ -18,30 +15,91 @@ import (
 // "os"
 
 func main() {
-	// user := &users.Admin{
-	// 	UserName:     "CustomerName2",
-	// 	UserPassword: "CustomerPassword2",
-	// 	Email:        "example2@.com",
-	// 	PhoneNum:     "*7777777777",
-	// }
-	// db.InsertUser(user)
-	// user := db.CheckUser("CustomerName2", "CustomerPassword2")
-	// if user != nil {
-	// 	fmt.Println(user)
-	// } else {
-	// 	fmt.Println("User not found")
-	// }
-	// var usersArr []users.IUser
-	// usersArr, err_users := db.GetUsers()
-	// if err_users != nil {
-	// 	fmt.Println(err_users)
-	// } else {
-	// 	fmt.Println("Get users successfully")
-	// 	fmt.Println(usersArr)
-	// }
-	// for _, v := range usersArr {
-	// 	fmt.Println(v)
-	// }
+	db.GetDBInstance()
+
+	reader := bufio.NewReader(os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
+
+	fmt.Println("\nWelcome to the Go Shop!")
+	fmt.Println("1. Register")
+	fmt.Println("2. Login in")
+	fmt.Println("3. Exit")
+	fmt.Print("Enter option: ")
+
+	scanner.Scan()
+	action := scanner.Text()
+
+	switch action {
+	case "1":
+		fmt.Println("Please enter your username:")
+		scanner.Scan()
+		username := scanner.Text()
+
+		fmt.Println("Please enter your password:")
+		scanner.Scan()
+		password := scanner.Text()
+
+		if err := db.LoginUser(username, password); err != nil {
+			fmt.Println("Error logging in:", err)
+			return
+		}
+
+		fmt.Println("Logged in successfully!")
+
+	case "2":
+		fmt.Println("Choose a username:")
+		scanner.Scan()
+		username := scanner.Text()
+
+		fmt.Println("Choose a password:")
+		scanner.Scan()
+		password := scanner.Text()
+
+		fmt.Println("Enter your email:")
+		scanner.Scan()
+		email := scanner.Text()
+
+		fmt.Println("Enter your phone number:")
+		scanner.Scan()
+		phoneNum := scanner.Text()
+
+		if err := db.RegisterUser(username, password, email, phoneNum, false); err != nil {
+			fmt.Println("Error registering:", err)
+			return
+		}
+
+		fmt.Println("Registered successfully! You can now login.")
+
+	case "3":
+		fmt.Println("Bye!")
+		return
+
+	default:
+		fmt.Println("Invalid option, exiting.")
+		return
+	}
+
+	for {
+		fmt.Println("1. View Products")
+		fmt.Println("2. Add Product")
+		fmt.Println("3. Exit")
+		fmt.Print("Enter option: ")
+
+		option, _ := reader.ReadString('\n')
+		option = strings.TrimSpace(option)
+
+		switch option {
+		case "1":
+			viewProducts()
+		case "2":
+			addProduct(reader)
+		case "3":
+			fmt.Println("Thank you for visiting Go Shop!")
+			return
+		default:
+			fmt.Println("Invalid option. Please try again.")
+		}
+	}
 
 	// user, userIdErr := db.GetUserById(4)
 	// if userIdErr != nil {
@@ -82,31 +140,6 @@ func main() {
 	// 	fmt.Println("GetProductCategories successfully")
 	// 	fmt.Print(categories)
 	// }
-
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Println("\nWelcome to the Go Shop!")
-		fmt.Println("1. View Products")
-		fmt.Println("2. Add Product")
-		fmt.Println("3. Exit")
-		fmt.Print("Enter option: ")
-
-		option, _ := reader.ReadString('\n')
-		option = strings.TrimSpace(option)
-
-		switch option {
-		case "1":
-			viewProducts()
-		case "2":
-			addProduct(reader)
-		case "3":
-			fmt.Println("Thank you for visiting Go Shop!")
-			return
-		default:
-			fmt.Println("Invalid option. Please try again.")
-		}
-	}
 
 	//product := products.Product{
 	//	Name:  "iphoe 12 pro",

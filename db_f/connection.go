@@ -10,6 +10,7 @@ import (
 	"shop/users"
 
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -83,27 +84,94 @@ func GetUsers() ([]users.IUser, error) {
 	return usersArr, nil
 }
 
-func InsertUser(user users.IUser) error {
+// LoginUser checks user credentials against the database.
+func LoginUser(username, password string) error {
+	// Replace with your actual database query logic.
+	var hashedPassword string
+	err := db.QueryRow("SELECT password FROM users WHERE username = $1", username).Scan(&hashedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("user not found")
+		}
+		return err
+	}
+
+	// Compare the hashed password from the database with the one the user provided.
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
+		return errors.New("invalid password")
+	}
+
+	return nil
+}
+
+// RegisterUser adds a new user to the database.
+func RegisterUser(username, password, email, phoneNum string, admin bool) error {
+	admin = false
+	// You would hash the password before storing it in your database.
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// Replace with your actual database insertion logic.
+	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin) VALUES ($1, $2, $3, $4, $5)", username, string(hashedPassword), email, phoneNum, admin)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func InsertUser(username, password, email, phoneNum string, admin bool) error {
+	var user users.IUser
+
+	if admin {
+		user = &users.Admin{
+			UserName:     username,
+			UserPassword: password,
+			Email:        email,
+			PhoneNum:     phoneNum,
+		}
+	} else {
+		user = &users.Customer{
+			UserName:     username,
+			UserPassword: password,
+			Email:        email,
+			PhoneNum:     phoneNum,
+		}
+	}
+
+	// Now use InsertUser function to insert the user into the DB.
+	err := UserInsert(user)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// InsertUser inserts a user into the database.
+func UserInsert(user users.IUser) error {
 	db := GetDBInstance()
 
 	sqlInsertUser := `
 	INSERT INTO users (username, password, email, phone_num, admin)
 	VALUES ($1, $2, $3, $4, $5)`
-	err_user := error(nil)
+	var errUser error
 
 	switch u := user.(type) {
 	case *users.Admin:
-		_, err_user = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, true)
+		_, errUser = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, true)
 
 	case *users.Customer:
-		_, err_user = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, false)
+		_, errUser = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, false)
 
 	default:
 		return errors.New("invalid user type")
 	}
 
-	if err_user != nil {
-		return err_user
+	if errUser != nil {
+		return errUser
 	}
 	return nil
 }
@@ -511,6 +579,6 @@ const (
 	host     = "localhost"
 	port     = 5432
 	user     = "postgres"
-	password = "031216551248"
+	password = "123412"
 	dbname   = "db_shop"
 )
