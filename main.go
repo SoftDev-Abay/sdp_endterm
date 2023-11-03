@@ -1,9 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	db "shop/db_f"
 	"shop/products"
+	"strconv"
+
+	//"shop/products"
+	//"strconv"
+	"strings"
 )
 
 // "bufio"
@@ -76,23 +83,48 @@ func main() {
 	// 	fmt.Print(categories)
 	// }
 
-	product := products.Product{
-		Name:  "iphoe 12 pro",
-		Desc:  "modern phone, cool resolution, 128GB",
-		Price: 3000,
-		Category: map[int]string{
-			1: "clothes",
-			4: "mobile phones",
-			5: "food",
-		},
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Println("\nWelcome to the Go Shop!")
+		fmt.Println("1. View Products")
+		fmt.Println("2. Add Product")
+		fmt.Println("3. Exit")
+		fmt.Print("Enter option: ")
+
+		option, _ := reader.ReadString('\n')
+		option = strings.TrimSpace(option)
+
+		switch option {
+		case "1":
+			viewProducts()
+		case "2":
+			addProduct(reader)
+		case "3":
+			fmt.Println("Thank you for visiting Go Shop!")
+			return
+		default:
+			fmt.Println("Invalid option. Please try again.")
+		}
 	}
-	product, err := db.InsertProduct(product)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("Insert product successfully")
-		fmt.Println(product)
-	}
+
+	//product := products.Product{
+	//	Name:  "iphoe 12 pro",
+	//	Desc:  "modern phone, cool resolution, 128GB",
+	//	Price: 3000,
+	//	Category: map[int]string{
+	//		1: "clothes",
+	//		4: "mobile phones",
+	//		5: "food",
+	//	},
+	//}
+	//product, err := db.InsertProduct(product)
+	//if err != nil {
+	//	fmt.Println(err)
+	//} else {
+	//	fmt.Println("Insert product successfully")
+	//	fmt.Println(product)
+	//}
 
 	// db.AddCategoryToProduct(1, 5)
 
@@ -165,4 +197,48 @@ func main() {
 	// if err := scanner.Err(); err != nil {
 	// 	fmt.Println("Error:", err)
 	// }
+}
+
+func viewProducts() {
+	// Use the GetProducts function that you have previously provided
+	productsList, err := db.GetProducts() // Assuming this function is in the 'products' package
+	if err != nil {
+		fmt.Println("Error retrieving products:", err)
+		return
+	}
+
+	fmt.Println("\nList of Products:")
+	for _, product := range productsList {
+		name, price, desc, categories := product.GetDetails()
+		fmt.Printf("Name: %s, Price: %d, Description: %s, Categories: %v\n", name, price, desc, categories)
+	}
+}
+
+func addProduct(reader *bufio.Reader) {
+	// Add product details
+	fmt.Print("Enter product name: ")
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
+
+	fmt.Print("Enter product description: ")
+	desc, _ := reader.ReadString('\n')
+	desc = strings.TrimSpace(desc)
+
+	fmt.Print("Enter product price: ")
+	priceStr, _ := reader.ReadString('\n')
+	priceStr = strings.TrimSpace(priceStr)
+	price, err := strconv.Atoi(priceStr)
+	if err != nil {
+		fmt.Println("Invalid price. Please enter a number.")
+		return
+	}
+
+	newProduct := products.Product{Name: name, Desc: desc, Price: price}
+	_, err = db.InsertProduct(newProduct)
+	if err != nil {
+		fmt.Println("Error adding product:", err)
+		return
+	}
+
+	fmt.Println("Product added successfully!")
 }
