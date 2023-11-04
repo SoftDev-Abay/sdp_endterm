@@ -4,11 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sync"
-	"time"
-
 	"shop/products"
 	"shop/users"
+	"sync"
 
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -107,7 +105,7 @@ func LoginUser(username, password string) (userID int, isAdmin bool, err error) 
 }
 
 // RegisterUser adds a new user to the database.
-func RegisterUser(username, password, email, phoneNum string, admin bool) error {
+func RegisterUser(username, password, email, phoneNum string, admin bool, balance int) error {
 	admin = false
 	// You would hash the password before storing it in your database.
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -116,7 +114,7 @@ func RegisterUser(username, password, email, phoneNum string, admin bool) error 
 	}
 
 	// Replace with your actual database insertion logic.
-	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin) VALUES ($1, $2, $3, $4, $5)", username, string(hashedPassword), email, phoneNum, admin)
+	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin, balance) VALUES ($1, $2, $3, $4, $5, $6)", username, string(hashedPassword), email, phoneNum, admin, balance)
 	if err != nil {
 		return err
 	}
@@ -337,15 +335,25 @@ func InsertProduct(product products.Product) (products.Product, error) {
 func AddToCart(userID, productID, quantity int) error {
 	db := GetDBInstance() // Get your DB instance.
 
+	// Retrieve the price of the product.
+	var price float64
+	err := db.QueryRow("SELECT price FROM products WHERE id = $1", productID).Scan(&price)
+	if err != nil {
+		return err // Return error if product does not exist or query failed.
+	}
+
+	// Calculate the total price.
+	totalPrice := price * float64(quantity)
+
 	// Prepare statement for inserting data into the cart table.
-	stmt, err := db.Prepare("INSERT INTO cart(user_id, product_id, quantity, date_added) VALUES(?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO cart (user_id, product_id, quantity, price, total_price) VALUES ($1, $2, $3, $4, $5)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	// Execute the statement with the user's data.
-	_, err = stmt.Exec(userID, productID, quantity, time.Now())
+	// Execute the prepared statement with the user's data.
+	_, err = stmt.Exec(userID, productID, quantity, price, totalPrice)
 	if err != nil {
 		return err
 	}

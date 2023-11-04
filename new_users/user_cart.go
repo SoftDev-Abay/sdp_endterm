@@ -9,6 +9,7 @@ type CartItem struct {
 	ProductID   int
 	ProductName string
 	Quantity    int
+	TotalPrice  int
 }
 
 // ViewCart retrieves the items in the user's cart from the database.
@@ -17,7 +18,7 @@ func ViewCart(userID int) ([]CartItem, error) {
 
 	// Use the correct placeholder syntax for PostgreSQL.
 	query := `
-        SELECT p.id, p.name, c.quantity
+        SELECT p.id, p.name, c.quantity, c.total_price
         FROM cart c
         JOIN products p ON c.product_id = p.id
         WHERE c.user_id = $1
@@ -32,7 +33,7 @@ func ViewCart(userID int) ([]CartItem, error) {
 	var cartItems []CartItem
 	for rows.Next() {
 		var item CartItem
-		err := rows.Scan(&item.ProductID, &item.ProductName, &item.Quantity)
+		err := rows.Scan(&item.ProductID, &item.ProductName, &item.Quantity, &item.TotalPrice)
 		if err != nil {
 			return nil, err
 		}

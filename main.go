@@ -69,7 +69,16 @@ func main() {
 		scanner.Scan()
 		phoneNum := scanner.Text()
 
-		if err := db.RegisterUser(username, password, email, phoneNum, false); err != nil {
+		fmt.Println("Enter your balance:")
+		scanner.Scan()
+		balance := scanner.Text()
+
+		intbalance, err := strconv.Atoi(balance)
+		if err != nil {
+			fmt.Println("Error:", err)
+		}
+
+		if err := db.RegisterUser(username, password, email, phoneNum, false, intbalance); err != nil {
 			fmt.Println("Error registering:", err)
 			return
 		}
@@ -143,9 +152,23 @@ func main() {
 			if len(cartItems) == 0 {
 				fmt.Println("Your cart is empty.")
 			} else {
-				fmt.Println("Your Cart:")
-				for _, item := range cartItems {
-					fmt.Printf("Product ID: %d, Product Name: %s, Quantity: %d\n", item.ProductID, item.ProductName, item.Quantity)
+				for {
+					fmt.Println("Your Cart:")
+					for _, item := range cartItems {
+						fmt.Printf("Product ID: %d, Product Name: %s, Quantity: %d, Total Price: %d\n", item.ProductID, item.ProductName, item.Quantity, item.TotalPrice)
+					}
+					fmt.Println("1. Buy")
+					fmt.Println("2. Quit from cart")
+					cartOption, _ := reader.ReadString('\n')
+					cartOption = strings.TrimSpace(cartOption)
+
+					switch cartOption {
+					case "1":
+						// buy function
+					case "2":
+						fmt.Println("Back to the menu")
+						break
+					}
 				}
 			}
 		case "3":
