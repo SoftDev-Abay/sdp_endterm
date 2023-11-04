@@ -16,6 +16,6 @@ func (p *Product) SetPrice(price int) {
 	p.Price = price
 }
 
-func (p *Product) GetDetails() (string, int, string, map[int]string) {
-	return p.Name, p.Price, p.Desc, p.Category
+func (p *Product) GetDetails() (int, string, int, string, map[int]string) {
+	return p.Id, p.Name, p.Price, p.Desc, p.Category
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	db "shop/db_f"
+	"shop/new_users"
 	"shop/products"
 	"strconv"
 	"strings"
@@ -17,12 +18,15 @@ import (
 func main() {
 	db.GetDBInstance()
 
+	var currentUserID int
+	var currentUserIsAdmin bool
+
 	reader := bufio.NewReader(os.Stdin)
 	scanner := bufio.NewScanner(os.Stdin)
 
 	fmt.Println("\nWelcome to the Go Shop!")
-	fmt.Println("1. Register")
-	fmt.Println("2. Login in")
+	fmt.Println("1. Login in")
+	fmt.Println("2. Registration")
 	fmt.Println("3. Exit")
 	fmt.Print("Enter option: ")
 
@@ -39,11 +43,13 @@ func main() {
 		scanner.Scan()
 		password := scanner.Text()
 
-		if err := db.LoginUser(username, password); err != nil {
+		userID, isAdmin, err := db.LoginUser(username, password)
+		if err != nil {
 			fmt.Println("Error logging in:", err)
 			return
 		}
-
+		currentUserID = userID
+		currentUserIsAdmin = isAdmin
 		fmt.Println("Logged in successfully!")
 
 	case "2":
@@ -80,9 +86,10 @@ func main() {
 	}
 
 	for {
-		fmt.Println("1. View Products")
-		fmt.Println("2. Add Product")
+		fmt.Println("1. Buy Product")
+		fmt.Println("2. Cart")
 		fmt.Println("3. Exit")
+		fmt.Println("4. Admin Panel (if you are admin)")
 		fmt.Print("Enter option: ")
 
 		option, _ := reader.ReadString('\n')
@@ -90,12 +97,72 @@ func main() {
 
 		switch option {
 		case "1":
-			viewProducts()
+			for {
+				fmt.Println("Choose products by ID to add to cart:")
+				viewProducts() // Make sure this function prints out products with their IDs
+				fmt.Println("Enter 0 to exit")
+				fmt.Print("Enter product ID: ")
+				productIDStr, _ := reader.ReadString('\n')
+				productIDStr = strings.TrimSpace(productIDStr)
+				productID, err := strconv.Atoi(productIDStr)
+				if productID == 0 {
+					break
+				}
+				if err != nil {
+					fmt.Println("Invalid product ID")
+					continue
+				}
+
+				fmt.Print("Enter quantity: ")
+				quantityStr, _ := reader.ReadString('\n')
+				quantityStr = strings.TrimSpace(quantityStr)
+				quantity, err := strconv.Atoi(quantityStr)
+				if err != nil {
+					fmt.Println("Invalid quantity")
+					continue
+				}
+
+				// Call the AddToCart function
+				err = db.AddToCart(currentUserID, productID, quantity)
+				if err != nil {
+					fmt.Println("Error adding to cart:", err)
+					continue
+				}
+
+				fmt.Println("Product added to cart successfully!")
+				break
+			}
 		case "2":
-			addProduct(reader)
+			fmt.Println("Viewing your cart items:")
+			cartItems, err := new_users.ViewCart(currentUserID)
+			if err != nil {
+				fmt.Println("Error retrieving cart items:", err)
+				continue
+			}
+
+			if len(cartItems) == 0 {
+				fmt.Println("Your cart is empty.")
+			} else {
+				fmt.Println("Your Cart:")
+				for _, item := range cartItems {
+					fmt.Printf("Product ID: %d, Product Name: %s, Quantity: %d\n", item.ProductID, item.ProductName, item.Quantity)
+				}
+			}
 		case "3":
 			fmt.Println("Thank you for visiting Go Shop!")
 			return
+		case "4":
+			if currentUserIsAdmin {
+				for {
+					fmt.Println("Hello, Admin!")
+					fmt.Println("1. Delete Product by iD")
+					fmt.Println("2. Add Product")
+					fmt.Println("3. Exit Admin console")
+				}
+			} else {
+				fmt.Println("You are not an admin!")
+				continue
+			}
 		default:
 			fmt.Println("Invalid option. Please try again.")
 		}
@@ -242,8 +309,8 @@ func viewProducts() {
 
 	fmt.Println("\nList of Products:")
 	for _, product := range productsList {
-		name, price, desc, categories := product.GetDetails()
-		fmt.Printf("Name: %s, Price: %d, Description: %s, Categories: %v\n", name, price, desc, categories)
+		id, name, price, desc, categories := product.GetDetails()
+		fmt.Printf("ID: %d, Name: %s, Price: %d, Description: %s, Categories: %v\n", id, name, price, desc, categories)
 	}
 }
 

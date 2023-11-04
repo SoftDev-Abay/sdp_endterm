@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"shop/products"
 	"shop/users"
@@ -85,23 +86,24 @@ func GetUsers() ([]users.IUser, error) {
 }
 
 // LoginUser checks user credentials against the database.
-func LoginUser(username, password string) error {
-	// Replace with your actual database query logic.
+func LoginUser(username, password string) (userID int, isAdmin bool, err error) {
 	var hashedPassword string
-	err := db.QueryRow("SELECT password FROM users WHERE username = $1", username).Scan(&hashedPassword)
+
+	// Query the database for the hashed password and admin flag based on the username
+	err = db.QueryRow("SELECT user_id, password, admin FROM users WHERE username = $1", username).Scan(&userID, &hashedPassword, &isAdmin)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errors.New("user not found")
+			return 0, false, errors.New("user not found")
 		}
-		return err
+		return 0, false, err
 	}
 
 	// Compare the hashed password from the database with the one the user provided.
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
-		return errors.New("invalid password")
+		return 0, false, errors.New("invalid password")
 	}
 
-	return nil
+	return userID, isAdmin, nil
 }
 
 // RegisterUser adds a new user to the database.
@@ -330,6 +332,25 @@ func InsertProduct(product products.Product) (products.Product, error) {
 
 	product.Id = id
 	return product, nil
+}
+
+func AddToCart(userID, productID, quantity int) error {
+	db := GetDBInstance() // Get your DB instance.
+
+	// Prepare statement for inserting data into the cart table.
+	stmt, err := db.Prepare("INSERT INTO cart(user_id, product_id, quantity, date_added) VALUES(?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	// Execute the statement with the user's data.
+	_, err = stmt.Exec(userID, productID, quantity, time.Now())
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func UpdateProduct(product products.Product) (products.Product, error) {
