@@ -447,6 +447,33 @@ func GetCategories() ([]string, error) {
 	return categoriesArr, nil
 }
 
+func GetCategoriesMap() (map[int]string, error) {
+	db := GetDBInstance()
+	rows, err := db.Query("SELECT * FROM categories")
+	if err != nil {
+		// handle this error better than this
+		return nil, err
+	}
+	categoriesMap := make(map[int]string)
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		var id int
+		err = rows.Scan(&id, &name)
+		if err != nil {
+			// handle this error
+			return nil, err
+		}
+		categoriesMap[id] = name
+	}
+	// get any error encountered during iteration
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	return categoriesMap, nil
+}
+
 func InsertCategory(category string) error {
 	db := GetDBInstance()
 
@@ -608,6 +635,6 @@ const (
 	host     = "localhost"
 	port     = 5432
 	user     = "postgres"
-	password = "123412"
+	password = "031216551248"
 	dbname   = "db_shop"
 )

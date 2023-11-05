@@ -205,6 +205,9 @@ func main() {
 
 					case "2":
 						// Абай ебашь
+						// haha okay
+						fmt.Println("Adding product:")
+						addProduct(reader)
 					}
 
 				}
@@ -380,8 +383,38 @@ func addProduct(reader *bufio.Reader) {
 		fmt.Println("Invalid price. Please enter a number.")
 		return
 	}
+	allCategoriesMap, err := db.GetCategoriesMap()
+	if err != nil {
+		fmt.Println("Error getting categories:", err)
+		return
+	}
+	fmt.Println("Choose a category to add: ")
+	productCategoryMap := make(map[int]string)
+	for {
+		for categoryId, categoryName := range allCategoriesMap {
+			fmt.Println(categoryId, categoryName)
+		}
+		fmt.Println("Write a category num (write `-1` if you are done)")
+		categoryIdInputStr, _ := reader.ReadString('\n')
 
-	newProduct := products.Product{Name: name, Desc: desc, Price: price}
+		categoryIdInputStr = strings.TrimSpace(categoryIdInputStr)
+		categoryIdInputInt, err := strconv.Atoi(categoryIdInputStr)
+
+		if categoryIdInputInt < 0 {
+			break
+		}
+		if err != nil {
+			fmt.Println("Error getting category id input:", err)
+		}
+		// check if id is inside category map, id is correct
+		if !mapContains(allCategoriesMap, categoryIdInputInt) {
+			fmt.Println("Id is invalid:")
+			continue
+		}
+		productCategoryMap[categoryIdInputInt] = allCategoriesMap[categoryIdInputInt]
+	}
+
+	newProduct := products.Product{Name: name, Desc: desc, Price: price, Category: productCategoryMap}
 	_, err = db.InsertProduct(newProduct)
 	if err != nil {
 		fmt.Println("Error adding product:", err)
@@ -389,4 +422,13 @@ func addProduct(reader *bufio.Reader) {
 	}
 
 	fmt.Println("Product added successfully!")
+}
+
+func mapContains(mapInput map[int]string, elem int) bool {
+	for id, _ := range mapInput {
+		if id == elem {
+			return true
+		}
+	}
+	return false
 }
