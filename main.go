@@ -168,7 +168,11 @@ func main() {
 					case "2":
 						fmt.Println("Back to the menu")
 						break
+					default:
+						fmt.Println("Invalid option")
+						break
 					}
+
 				}
 			}
 		case "3":
@@ -180,7 +184,29 @@ func main() {
 					fmt.Println("Hello, Admin!")
 					fmt.Println("1. Delete Product by iD")
 					fmt.Println("2. Add Product")
-					fmt.Println("3. Exit Admin console")
+					fmt.Println("3. Add Category")
+					fmt.Println("4. Exit Admin console")
+					adminOption, _ := reader.ReadString('\n')
+					adminOption = strings.TrimSpace(adminOption)
+
+					switch adminOption {
+					case "1":
+						fmt.Println("Enter ID please")
+						productIDStr, _ := reader.ReadString('\n')
+						productIDStr = strings.TrimSpace(productIDStr)
+						productID, err := strconv.Atoi(productIDStr)
+						if err != nil {
+							fmt.Println("Invalid product ID")
+							continue
+						}
+
+						db.DeleteProduct(productID)
+						fmt.Printf("Product: %v has deleted!", productID)
+
+					case "2":
+						// Абай ебашь
+					}
+
 				}
 			} else {
 				fmt.Println("You are not an admin!")
@@ -323,7 +349,6 @@ func main() {
 }
 
 func viewProducts() {
-	// Use the GetProducts function that you have previously provided
 	productsList, err := db.GetProducts() // Assuming this function is in the 'products' package
 	if err != nil {
 		fmt.Println("Error retrieving products:", err)
