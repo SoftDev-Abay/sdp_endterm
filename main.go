@@ -87,6 +87,7 @@ func main() {
 		}
 
 		fmt.Println("Registered successfully! You can now login.")
+		return
 
 	case "3":
 		fmt.Println("Bye!")
@@ -171,7 +172,8 @@ func main() {
 					cartOption = strings.TrimSpace(cartOption)
 
 					if cartOption == "1" {
-						err := db.BuyProducts(currentUserID)
+						currentBalance, err := db.BuyProducts(currentUserID)
+						currentUserBalance = currentBalance
 						if err != nil {
 							fmt.Println("Error during purchase:", err)
 						} else {
@@ -185,9 +187,11 @@ func main() {
 					break
 				}
 			}
+
 		case "3":
 			fmt.Println("Thank you for visiting Go Shop!")
 			return
+
 		case "4":
 			if currentUserIsAdmin {
 				for {

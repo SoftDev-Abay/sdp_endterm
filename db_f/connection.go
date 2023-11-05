@@ -176,55 +176,61 @@ func UserInsert(user users.IUser) error {
 	return nil
 }
 
-func BuyProducts(userID int) error {
+func BuyProducts(userID int) (int, error) {
 	db := GetDBInstance() // Get your DB instance.
 
 	// Start a database transaction.
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Ensure to roll back if any error occurs.
-	defer tx.Rollback()
+	// Flag to check if the commit was successful.
+	commitSuccess := false
+	defer func() {
+		if !commitSuccess {
+			tx.Rollback()
+		}
+	}()
 
 	// Calculate the total cost of the items in the cart.
-	var totalCost float64
+	var totalCost int
 	err = tx.QueryRow("SELECT SUM(total_price) FROM cart WHERE user_id = $1", userID).Scan(&totalCost)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to calculate total cost: %w", err)
 	}
 
 	// Retrieve the current balance of the user.
-	var currentBalance float64
+	var currentBalance int
 	err = tx.QueryRow("SELECT balance FROM users WHERE user_id = $1", userID).Scan(&currentBalance)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to retrieve user balance: %w", err)
 	}
 
 	// Check if the user has enough balance to cover the purchase.
 	if currentBalance < totalCost {
-		return errors.New("insufficient balance")
+		return 0, errors.New("insufficient balance")
 	}
 
 	// Update the user's balance.
 	newBalance := currentBalance - totalCost
 	_, err = tx.Exec("UPDATE users SET balance = $1 WHERE user_id = $2", newBalance, userID)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to update user balance: %w", err)
 	}
 
 	_, err = tx.Exec("DELETE FROM cart WHERE user_id = $1", userID)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to clear cart: %w", err)
 	}
 
 	// Commit the transaction.
 	if err = tx.Commit(); err != nil {
-		return err
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	commitSuccess = true
 
-	return nil
+	return newBalance, nil
 }
 
 func CheckUser(username string, userpassword string) users.IUser {
