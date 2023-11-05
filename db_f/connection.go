@@ -84,24 +84,24 @@ func GetUsers() ([]users.IUser, error) {
 }
 
 // LoginUser checks user credentials against the database.
-func LoginUser(username, password string) (userID int, isAdmin bool, err error) {
+func LoginUser(username, password string) (userID, balance int, isAdmin bool, err error) {
 	var hashedPassword string
 
 	// Query the database for the hashed password and admin flag based on the username
-	err = db.QueryRow("SELECT user_id, password, admin FROM users WHERE username = $1", username).Scan(&userID, &hashedPassword, &isAdmin)
+	err = db.QueryRow("SELECT user_id, balance, password, admin FROM users WHERE username = $1", username).Scan(&userID, &balance, &hashedPassword, &isAdmin)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, false, errors.New("user not found")
+			return 0, 0, false, errors.New("user not found")
 		}
-		return 0, false, err
+		return 0, 0, false, err
 	}
 
 	// Compare the hashed password from the database with the one the user provided.
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
-		return 0, false, errors.New("invalid password")
+		return 0, 0, false, errors.New("invalid password")
 	}
 
-	return userID, isAdmin, nil
+	return userID, balance, isAdmin, nil
 }
 
 // RegisterUser adds a new user to the database.
@@ -173,6 +173,57 @@ func UserInsert(user users.IUser) error {
 	if errUser != nil {
 		return errUser
 	}
+	return nil
+}
+
+func BuyProducts(userID int) error {
+	db := GetDBInstance() // Get your DB instance.
+
+	// Start a database transaction.
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	// Ensure to roll back if any error occurs.
+	defer tx.Rollback()
+
+	// Calculate the total cost of the items in the cart.
+	var totalCost float64
+	err = tx.QueryRow("SELECT SUM(total_price) FROM cart WHERE user_id = $1", userID).Scan(&totalCost)
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the current balance of the user.
+	var currentBalance float64
+	err = tx.QueryRow("SELECT balance FROM users WHERE user_id = $1", userID).Scan(&currentBalance)
+	if err != nil {
+		return err
+	}
+
+	// Check if the user has enough balance to cover the purchase.
+	if currentBalance < totalCost {
+		return errors.New("insufficient balance")
+	}
+
+	// Update the user's balance.
+	newBalance := currentBalance - totalCost
+	_, err = tx.Exec("UPDATE users SET balance = $1 WHERE user_id = $2", newBalance, userID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM cart WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	// Commit the transaction.
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -635,6 +686,6 @@ const (
 	host     = "localhost"
 	port     = 5432
 	user     = "postgres"
-	password = "031216551248"
+	password = "123412"
 	dbname   = "db_shop"
 )

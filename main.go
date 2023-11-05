@@ -20,6 +20,7 @@ func main() {
 
 	var currentUserID int
 	var currentUserIsAdmin bool
+	var currentUserBalance int
 
 	reader := bufio.NewReader(os.Stdin)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -43,13 +44,15 @@ func main() {
 		scanner.Scan()
 		password := scanner.Text()
 
-		userID, isAdmin, err := db.LoginUser(username, password)
+		userID, balance, isAdmin, err := db.LoginUser(username, password)
 		if err != nil {
 			fmt.Println("Error logging in:", err)
 			return
 		}
 		currentUserID = userID
 		currentUserIsAdmin = isAdmin
+		currentUserBalance = balance
+
 		fmt.Println("Logged in successfully!")
 
 	case "2":
@@ -95,6 +98,7 @@ func main() {
 	}
 
 	for {
+		fmt.Printf("Your current balance: %v\n", currentUserBalance)
 		fmt.Println("1. Buy Product")
 		fmt.Println("2. Cart")
 		fmt.Println("3. Exit")
@@ -107,6 +111,7 @@ func main() {
 		switch option {
 		case "1":
 			for {
+				fmt.Printf("Your current balance: %v\n", currentUserBalance)
 				fmt.Println("Choose products by ID to add to cart:")
 				viewProducts() // Make sure this function prints out products with their IDs
 				fmt.Println("Enter 0 to exit")
@@ -142,6 +147,7 @@ func main() {
 				break
 			}
 		case "2":
+			fmt.Printf("Your current balance: %v\n", currentUserBalance)
 			fmt.Println("Viewing your cart items:")
 			cartItems, err := new_users.ViewCart(currentUserID)
 			if err != nil {
@@ -153,26 +159,30 @@ func main() {
 				fmt.Println("Your cart is empty.")
 			} else {
 				for {
+					fmt.Printf("Your current balance: %v\n", currentUserBalance)
 					fmt.Println("Your Cart:")
 					for _, item := range cartItems {
 						fmt.Printf("Product ID: %d, Product Name: %s, Quantity: %d, Total Price: %d\n", item.ProductID, item.ProductName, item.Quantity, item.TotalPrice)
 					}
 					fmt.Println("1. Buy")
 					fmt.Println("2. Quit from cart")
+					fmt.Print("Your option: ")
 					cartOption, _ := reader.ReadString('\n')
 					cartOption = strings.TrimSpace(cartOption)
 
-					switch cartOption {
-					case "1":
-						// buy function
-					case "2":
+					if cartOption == "1" {
+						err := db.BuyProducts(currentUserID)
+						if err != nil {
+							fmt.Println("Error during purchase:", err)
+						} else {
+							fmt.Println("Purchase successful!")
+						}
+					} else if cartOption == "2" {
 						fmt.Println("Back to the menu")
 						break
-					default:
-						fmt.Println("Invalid option")
-						break
 					}
-
+					fmt.Println("Invalid option")
+					break
 				}
 			}
 		case "3":
@@ -189,6 +199,10 @@ func main() {
 					adminOption, _ := reader.ReadString('\n')
 					adminOption = strings.TrimSpace(adminOption)
 
+					if adminOption == "4" {
+						fmt.Println("bye!")
+						break
+					}
 					switch adminOption {
 					case "1":
 						fmt.Println("Enter ID please")
@@ -218,10 +232,7 @@ func main() {
 							continue
 						}
 						fmt.Println("successfully added category !")
-					case "4":
-						break
 					}
-
 				}
 			} else {
 				fmt.Println("You are not an admin!")
