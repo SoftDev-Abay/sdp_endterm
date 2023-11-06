@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"shop/commands"
 	db "shop/db_f"
 	"shop/new_users"
+	notifications "shop/notifications"
 	"shop/products"
 	"strconv"
 	"strings"
@@ -30,6 +32,13 @@ func main() {
 	fmt.Println("2. Registration")
 	fmt.Println("3. Exit")
 	fmt.Print("Enter option: ")
+
+	UserObservers := notifications.UserSubject{}
+	err := UserObservers.RegisterAllUsers()
+	if err != nil {
+		fmt.Println("Error registering all users:", err)
+		return
+	}
 
 	scanner.Scan()
 	action := scanner.Text()
@@ -112,8 +121,9 @@ func main() {
 		fmt.Printf("Your current balance: %v\n", currentUserBalance)
 		fmt.Println("1. Buy Product")
 		fmt.Println("2. Cart")
-		fmt.Println("3. Exit")
-		fmt.Println("4. Admin Panel (if you are admin)")
+		fmt.Println("3. Notifications")
+		fmt.Println("4. Exit")
+		fmt.Println("5. Admin Panel (if you are admin)")
 		fmt.Print("Enter option: ")
 
 		option, _ := reader.ReadString('\n')
@@ -196,28 +206,40 @@ func main() {
 					break
 				}
 			}
-
 		case "3":
+			fmt.Println("Viewing your notifications:")
+			notifications, err := db.GetNotificationsForUserByID(currentUserID)
+			if err != nil {
+				fmt.Println("Error retrieving notifications:", err)
+				continue
+			}
+			for _, text := range notifications {
+				fmt.Println(text)
+			}
+		case "4":
 			fmt.Println("Thank you for visiting Go Shop!")
 			return
 
-		case "4":
+		case "5":
 			if currentUserIsAdmin {
 				for {
 					fmt.Println("Hello, Admin!")
 					fmt.Println("1. Delete Product by iD")
 					fmt.Println("2. Add Product")
 					fmt.Println("3. Add Category")
-					fmt.Println("4. Exit Admin console")
+					fmt.Println("4. Show observers")
+					fmt.Println("5. Clear all notifications")
+					fmt.Println("6. Exit Admin console")
 					adminOption, _ := reader.ReadString('\n')
 					adminOption = strings.TrimSpace(adminOption)
 
-					if adminOption == "4" {
+					if adminOption == "6" {
 						fmt.Println("bye!")
 						break
 					}
 					switch adminOption {
 					case "1":
+						viewProducts()
 						fmt.Println("Enter ID please")
 						productIDStr, _ := reader.ReadString('\n')
 						productIDStr = strings.TrimSpace(productIDStr)
@@ -227,14 +249,32 @@ func main() {
 							continue
 						}
 
-						db.DeleteProduct(productID)
+						deleteProduct(productID)
 						fmt.Printf("Product: %v has deleted!", productID)
 
 					case "2":
-						// Абай ебашь
-						// haha okay
 						fmt.Println("Adding product:")
-						addProduct(reader)
+
+						name, desc, price, categoryMap, err := getProductDetailsFromUser(reader)
+						if err != nil {
+							fmt.Println("Error getting product details:", err)
+							break
+						}
+						addProductCmd := &commands.AddProductCommand{
+							Product: products.Product{
+								Name:     name,
+								Desc:     desc,
+								Price:    price,
+								Category: categoryMap,
+							},
+						}
+
+						if err := addProductCmd.Execute(); err != nil {
+							fmt.Println("Error adding product:", err)
+						} else {
+							fmt.Println("Product added successfully!")
+						}
+             UserObservers.NotifyObservers()
 					case "3":
 						fmt.Println("Enter new category name please")
 						categoryNameInput, _ := reader.ReadString('\n')
@@ -245,6 +285,19 @@ func main() {
 							continue
 						}
 						fmt.Println("successfully added category !")
+					case "4":
+						fmt.Println("Viewing observers:")
+						observers := UserObservers.GetObservers()
+						for _, observer := range observers {
+							fmt.Printf("Observer: %v\n", observer)
+						}
+					case "5":
+						fmt.Println("Clearing all notifications:")
+						err := db.ClearAllNotifications()
+						if err != nil {
+							fmt.Println("Error clearing notifications:", err)
+							continue
+						}
 					}
 				}
 			} else {
@@ -271,62 +324,96 @@ func viewProducts() {
 	}
 }
 
-func addProduct(reader *bufio.Reader) {
-	fmt.Print("Enter product name: ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-
-	fmt.Print("Enter product description: ")
-	desc, _ := reader.ReadString('\n')
-	desc = strings.TrimSpace(desc)
-
-	fmt.Print("Enter product price: ")
-	priceStr, _ := reader.ReadString('\n')
-	priceStr = strings.TrimSpace(priceStr)
-	price, err := strconv.Atoi(priceStr)
-	if err != nil {
-		fmt.Println("Invalid price. Please enter a number.")
-		return
-	}
-	allCategoriesMap, err := db.GetCategoriesMap()
-	if err != nil {
-		fmt.Println("Error getting categories:", err)
-		return
-	}
-	fmt.Println("Choose a category to add: ")
-	productCategoryMap := make(map[int]string)
-	for {
-		for categoryId, categoryName := range allCategoriesMap {
-			fmt.Println(categoryId, categoryName)
-		}
-		fmt.Println("Write a category num (write `-1` if you are done)")
-		categoryIdInputStr, _ := reader.ReadString('\n')
-
-		categoryIdInputStr = strings.TrimSpace(categoryIdInputStr)
-		categoryIdInputInt, err := strconv.Atoi(categoryIdInputStr)
-
-		if categoryIdInputInt < 0 {
-			break
-		}
-		if err != nil {
-			fmt.Println("Error getting category id input:", err)
-		}
-		// check if id is inside category map, id is correct
-		if !mapContains(allCategoriesMap, categoryIdInputInt) {
-			fmt.Println("Id is invalid:")
-			continue
-		}
-		productCategoryMap[categoryIdInputInt] = allCategoriesMap[categoryIdInputInt]
-	}
-
+func addProduct(name, desc string, price int, productCategoryMap map[int]string) {
 	newProduct := products.Product{Name: name, Desc: desc, Price: price, Category: productCategoryMap}
-	_, err = db.InsertProduct(newProduct)
-	if err != nil {
+	addProductCmd := &commands.AddProductCommand{Product: newProduct}
+
+	// Execute the command
+	if err := addProductCmd.Execute(); err != nil {
 		fmt.Println("Error adding product:", err)
 		return
 	}
 
 	fmt.Println("Product added successfully!")
+}
+
+func deleteProduct(productID int) {
+	deleteProductCmd := &commands.DeleteProductCommand{ProductID: productID}
+
+	// Execute the command
+	if err := deleteProductCmd.Execute(); err != nil {
+		fmt.Println("Error deleting product:", err)
+		return
+	}
+
+	fmt.Println("Product deleted successfully!")
+}
+
+func getProductDetailsFromUser(reader *bufio.Reader) (name string, desc string, price int, categoryMap map[int]string, err error) {
+	fmt.Print("Enter product name: ")
+	name, err = reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	name = strings.TrimSpace(name)
+
+	fmt.Print("Enter product description: ")
+	desc, err = reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	desc = strings.TrimSpace(desc)
+
+	fmt.Print("Enter product price: ")
+	priceStr, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	priceStr = strings.TrimSpace(priceStr)
+	price, err = strconv.Atoi(priceStr)
+	if err != nil {
+		fmt.Println("Invalid price. Please enter a number.")
+		return
+	}
+
+	allCategoriesMap, err := db.GetCategoriesMap()
+	if err != nil {
+		fmt.Println("Error getting categories:", err)
+		return
+	}
+
+	categoryMap = make(map[int]string)
+	fmt.Println("Choose a category to add: (write `-1` when done)")
+	for {
+		for categoryId, categoryName := range allCategoriesMap {
+			fmt.Printf("%d: %s\n", categoryId, categoryName)
+		}
+		fmt.Print("Enter category ID: ")
+		categoryIdInputStr, errRead := reader.ReadString('\n')
+		if errRead != nil {
+			err = errRead // Assign the new error to the named return
+			return
+		}
+
+		categoryIdInputStr = strings.TrimSpace(categoryIdInputStr)
+		categoryIdInputInt, errConv := strconv.Atoi(categoryIdInputStr)
+		if errConv != nil {
+			fmt.Println("Invalid input. Please enter a number.")
+			continue
+		}
+
+		if categoryIdInputInt == -1 {
+			break
+		}
+
+		if categoryName, exists := allCategoriesMap[categoryIdInputInt]; exists {
+			categoryMap[categoryIdInputInt] = categoryName
+		} else {
+			fmt.Println("Category ID does not exist.")
+		}
+	}
+
+	return
 }
 
 func mapContains(mapInput map[int]string, elem int) bool {

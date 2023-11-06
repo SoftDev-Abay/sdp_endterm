@@ -3,8 +3,9 @@ package new_users
 import (
 	"database/sql"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	db "shop/db_f"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type IUserFactory interface {
@@ -53,6 +54,32 @@ type User struct {
 	Admin       bool
 	Balance     int
 	Permissions iPermissionStrategy
+}
+
+func (u *User) Update() error {
+	userId, err := db.GetUserId(u.Username)
+
+	if err != nil {
+		return err
+	}
+	userNotifications, err := db.GetNotificationsForUserByID(userId)
+	if err != nil {
+		return err
+	}
+	allNotifications, err := db.GetNotifications()
+	if err != nil {
+		return err
+	}
+	for id, _ := range allNotifications {
+		if !mapContains(userNotifications, id) {
+			err = db.AddNotificationToUser(userId, id)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+
 }
 
 // Register function takes a factory, which will provide the mechanism to create a User with the correct permissions.
@@ -112,4 +139,52 @@ func LoginUser(username, password string) (User, error) {
 func (u *User) HasAdminPermissions() bool {
 	_, ok := u.Permissions.(*AdminPermissions)
 	return ok
+}
+
+func GetUsers() ([]User, error) {
+	db := db.GetDBInstance()
+	rows, err := db.Query("SELECT * FROM users")
+	if err != nil {
+		// handle this error better than this
+		return nil, err
+	}
+	var usersArr []User
+	defer rows.Close()
+	for rows.Next() {
+		var id int
+		var username string
+		var userpassword string
+		var email string
+		var phoneNum string
+		var isAdmin bool
+		err = rows.Scan(&id, &username, &userpassword, &email, &phoneNum, &isAdmin)
+		if err != nil {
+			// handle this error
+			return nil, err
+		}
+		user := User{
+			UserID:   id,
+			Username: username,
+			Password: userpassword,
+			Email:    email,
+			PhoneNum: phoneNum,
+			Admin:    isAdmin,
+		}
+		usersArr = append(usersArr, user)
+	}
+	// get any error encountered during iteration
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	return usersArr, nil
+}
+
+func mapContains(mapInput map[int]string, elem int) bool {
+	for id, _ := range mapInput {
+		if id == elem {
+			return true
+		}
+	}
+	return false
 }
