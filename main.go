@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"shop/commands"
 	db "shop/db_f"
 	"shop/new_users"
 	notifications "shop/notifications"
@@ -238,6 +239,7 @@ func main() {
 					}
 					switch adminOption {
 					case "1":
+						viewProducts()
 						fmt.Println("Enter ID please")
 						productIDStr, _ := reader.ReadString('\n')
 						productIDStr = strings.TrimSpace(productIDStr)
@@ -247,16 +249,32 @@ func main() {
 							continue
 						}
 
-						db.DeleteProduct(productID)
+						deleteProduct(productID)
 						fmt.Printf("Product: %v has deleted!", productID)
 
 					case "2":
-						// Абай ебашь
-						// haha okay
 						fmt.Println("Adding product:")
-						addProduct(reader)
-						fmt.Println("successfully added product !")
-						UserObservers.NotifyObservers()
+
+						name, desc, price, categoryMap, err := getProductDetailsFromUser(reader)
+						if err != nil {
+							fmt.Println("Error getting product details:", err)
+							break
+						}
+						addProductCmd := &commands.AddProductCommand{
+							Product: products.Product{
+								Name:     name,
+								Desc:     desc,
+								Price:    price,
+								Category: categoryMap,
+							},
+						}
+
+						if err := addProductCmd.Execute(); err != nil {
+							fmt.Println("Error adding product:", err)
+						} else {
+							fmt.Println("Product added successfully!")
+						}
+             UserObservers.NotifyObservers()
 					case "3":
 						fmt.Println("Enter new category name please")
 						categoryNameInput, _ := reader.ReadString('\n')
@@ -306,62 +324,96 @@ func viewProducts() {
 	}
 }
 
-func addProduct(reader *bufio.Reader) {
-	fmt.Print("Enter product name: ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-
-	fmt.Print("Enter product description: ")
-	desc, _ := reader.ReadString('\n')
-	desc = strings.TrimSpace(desc)
-
-	fmt.Print("Enter product price: ")
-	priceStr, _ := reader.ReadString('\n')
-	priceStr = strings.TrimSpace(priceStr)
-	price, err := strconv.Atoi(priceStr)
-	if err != nil {
-		fmt.Println("Invalid price. Please enter a number.")
-		return
-	}
-	allCategoriesMap, err := db.GetCategoriesMap()
-	if err != nil {
-		fmt.Println("Error getting categories:", err)
-		return
-	}
-	fmt.Println("Choose a category to add: ")
-	productCategoryMap := make(map[int]string)
-	for {
-		for categoryId, categoryName := range allCategoriesMap {
-			fmt.Println(categoryId, categoryName)
-		}
-		fmt.Println("Write a category num (write `-1` if you are done)")
-		categoryIdInputStr, _ := reader.ReadString('\n')
-
-		categoryIdInputStr = strings.TrimSpace(categoryIdInputStr)
-		categoryIdInputInt, err := strconv.Atoi(categoryIdInputStr)
-
-		if categoryIdInputInt < 0 {
-			break
-		}
-		if err != nil {
-			fmt.Println("Error getting category id input:", err)
-		}
-		// check if id is inside category map, id is correct
-		if !mapContains(allCategoriesMap, categoryIdInputInt) {
-			fmt.Println("Id is invalid:")
-			continue
-		}
-		productCategoryMap[categoryIdInputInt] = allCategoriesMap[categoryIdInputInt]
-	}
-
+func addProduct(name, desc string, price int, productCategoryMap map[int]string) {
 	newProduct := products.Product{Name: name, Desc: desc, Price: price, Category: productCategoryMap}
-	_, err = db.InsertProduct(newProduct)
-	if err != nil {
+	addProductCmd := &commands.AddProductCommand{Product: newProduct}
+
+	// Execute the command
+	if err := addProductCmd.Execute(); err != nil {
 		fmt.Println("Error adding product:", err)
 		return
 	}
 
 	fmt.Println("Product added successfully!")
+}
+
+func deleteProduct(productID int) {
+	deleteProductCmd := &commands.DeleteProductCommand{ProductID: productID}
+
+	// Execute the command
+	if err := deleteProductCmd.Execute(); err != nil {
+		fmt.Println("Error deleting product:", err)
+		return
+	}
+
+	fmt.Println("Product deleted successfully!")
+}
+
+func getProductDetailsFromUser(reader *bufio.Reader) (name string, desc string, price int, categoryMap map[int]string, err error) {
+	fmt.Print("Enter product name: ")
+	name, err = reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	name = strings.TrimSpace(name)
+
+	fmt.Print("Enter product description: ")
+	desc, err = reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	desc = strings.TrimSpace(desc)
+
+	fmt.Print("Enter product price: ")
+	priceStr, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	priceStr = strings.TrimSpace(priceStr)
+	price, err = strconv.Atoi(priceStr)
+	if err != nil {
+		fmt.Println("Invalid price. Please enter a number.")
+		return
+	}
+
+	allCategoriesMap, err := db.GetCategoriesMap()
+	if err != nil {
+		fmt.Println("Error getting categories:", err)
+		return
+	}
+
+	categoryMap = make(map[int]string)
+	fmt.Println("Choose a category to add: (write `-1` when done)")
+	for {
+		for categoryId, categoryName := range allCategoriesMap {
+			fmt.Printf("%d: %s\n", categoryId, categoryName)
+		}
+		fmt.Print("Enter category ID: ")
+		categoryIdInputStr, errRead := reader.ReadString('\n')
+		if errRead != nil {
+			err = errRead // Assign the new error to the named return
+			return
+		}
+
+		categoryIdInputStr = strings.TrimSpace(categoryIdInputStr)
+		categoryIdInputInt, errConv := strconv.Atoi(categoryIdInputStr)
+		if errConv != nil {
+			fmt.Println("Invalid input. Please enter a number.")
+			continue
+		}
+
+		if categoryIdInputInt == -1 {
+			break
+		}
+
+		if categoryName, exists := allCategoriesMap[categoryIdInputInt]; exists {
+			categoryMap[categoryIdInputInt] = categoryName
+		} else {
+			fmt.Println("Category ID does not exist.")
+		}
+	}
+
+	return
 }
 
 func mapContains(mapInput map[int]string, elem int) bool {
