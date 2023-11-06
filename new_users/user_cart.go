@@ -14,9 +14,8 @@ type CartItem struct {
 
 // ViewCart retrieves the items in the user's cart from the database.
 func ViewCart(userID int) ([]CartItem, error) {
-	db := db.GetDBInstance() // Get your DB instance.
+	db := db.GetDBInstance()
 
-	// Use the correct placeholder syntax for PostgreSQL.
 	query := `
         SELECT p.id, p.name, c.quantity, c.total_price
         FROM cart c

@@ -7,12 +7,11 @@ import (
 	db "shop/db_f"
 )
 
-// Define the IUserFactory interface
 type IUserFactory interface {
 	CreateUser(username, password, email, phoneNum string, balance int) (User, error)
 }
 
-// Define the AdminUserFactory which will create users with admin permissions
+// AdminUserFactory will create users with admin permissions
 type AdminUserFactory struct{}
 
 func (f *AdminUserFactory) CreateUser(username, password, email, phoneNum string, balance int) (User, error) {
@@ -28,7 +27,7 @@ func (f *AdminUserFactory) CreateUser(username, password, email, phoneNum string
 	return user, nil
 }
 
-// Define the RegularUserFactory which will create users with regular permissions
+// RegularUserFactory will create users with regular permissions
 type RegularUserFactory struct{}
 
 func (f *RegularUserFactory) CreateUser(username, password, email, phoneNum string, balance int) (User, error) {
@@ -56,7 +55,7 @@ type User struct {
 	Permissions iPermissionStrategy
 }
 
-// The Register function takes a factory, which will provide the mechanism to create a User with the correct permissions.
+// Register function takes a factory, which will provide the mechanism to create a User with the correct permissions.
 func Register(factory IUserFactory, username, password, email, phoneNum string, balance int) error {
 	user, err := factory.CreateUser(username, password, email, phoneNum, balance)
 	if err != nil {
@@ -86,7 +85,7 @@ func LoginUser(username, password string) (User, error) {
 	var isAdmin bool
 	dbInstance := db.GetDBInstance()
 
-	// Query the database for the hashed password and admin flag based on the username
+	// query the database for the hashed password and admin flag based on the username
 	err := dbInstance.QueryRow("SELECT user_id, balance, password, admin FROM users WHERE username = $1", username).Scan(&user.UserID, &user.Balance, &hashedPassword, &isAdmin)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -95,12 +94,12 @@ func LoginUser(username, password string) (User, error) {
 		return User{}, err
 	}
 
-	// Compare the hashed password from the database with the one the user provided.
+	// compare the hashed password from the database with the one the user provided.
 	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
 		return User{}, errors.New("invalid password")
 	}
 
-	// Set permissions based on the isAdmin value
+	// set permissions based on the isAdmin value
 	if isAdmin {
 		user.Permissions = &AdminPermissions{}
 	} else {

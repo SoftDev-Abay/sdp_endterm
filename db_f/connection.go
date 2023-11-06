@@ -104,16 +104,14 @@ func LoginUser(username, password string) (userID, balance int, isAdmin bool, er
 	return userID, balance, isAdmin, nil
 }
 
-// RegisterUser adds a new user to the database.
 func RegisterUser(username, password, email, phoneNum string, admin bool, balance int) error {
 	admin = false
-	// You would hash the password before storing it in your database.
+	// hashing the password before storing in database
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	// Replace with your actual database insertion logic.
 	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin, balance) VALUES ($1, $2, $3, $4, $5, $6)", username, string(hashedPassword), email, phoneNum, admin, balance)
 	if err != nil {
 		return err
@@ -141,7 +139,6 @@ func InsertUser(username, password, email, phoneNum string, admin bool) error {
 		}
 	}
 
-	// Now use InsertUser function to insert the user into the DB.
 	err := UserInsert(user)
 	if err != nil {
 		return err
@@ -150,7 +147,6 @@ func InsertUser(username, password, email, phoneNum string, admin bool) error {
 	return nil
 }
 
-// InsertUser inserts a user into the database.
 func UserInsert(user users.IUser) error {
 	db := GetDBInstance()
 
@@ -179,13 +175,13 @@ func UserInsert(user users.IUser) error {
 func BuyProducts(userID int) (int, error) {
 	db := GetDBInstance() // Get your DB instance.
 
-	// Start a database transaction.
+	// start database transaction.
 	tx, err := db.Begin()
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Flag to check if the commit was successful.
+	// flag to check if the commit was successful.
 	commitSuccess := false
 	defer func() {
 		if !commitSuccess {
@@ -193,26 +189,26 @@ func BuyProducts(userID int) (int, error) {
 		}
 	}()
 
-	// Calculate the total cost of the items in the cart.
+	// calculate the total cost of the items in the cart
 	var totalCost int
 	err = tx.QueryRow("SELECT SUM(total_price) FROM cart WHERE user_id = $1", userID).Scan(&totalCost)
 	if err != nil {
 		return 0, fmt.Errorf("failed to calculate total cost: %w", err)
 	}
 
-	// Retrieve the current balance of the user.
+	// retrieve the current balance of the user
 	var currentBalance int
 	err = tx.QueryRow("SELECT balance FROM users WHERE user_id = $1", userID).Scan(&currentBalance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve user balance: %w", err)
 	}
 
-	// Check if the user has enough balance to cover the purchase.
+	// check if the user has enough balance to cover the purchase
 	if currentBalance < totalCost {
 		return 0, errors.New("insufficient balance")
 	}
 
-	// Update the user's balance.
+	// update the user's balance
 	newBalance := currentBalance - totalCost
 	_, err = tx.Exec("UPDATE users SET balance = $1 WHERE user_id = $2", newBalance, userID)
 	if err != nil {
@@ -224,7 +220,7 @@ func BuyProducts(userID int) (int, error) {
 		return 0, fmt.Errorf("failed to clear cart: %w", err)
 	}
 
-	// Commit the transaction.
+	// commit the transaction.
 	if err = tx.Commit(); err != nil {
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
@@ -390,26 +386,26 @@ func InsertProduct(product products.Product) (products.Product, error) {
 }
 
 func AddToCart(userID, productID, quantity int) error {
-	db := GetDBInstance() // Get your DB instance.
+	db := GetDBInstance()
 
-	// Retrieve the price of the product.
+	// retrieve the price of the product.
 	var price float64
 	err := db.QueryRow("SELECT price FROM products WHERE id = $1", productID).Scan(&price)
 	if err != nil {
 		return err // Return error if product does not exist or query failed.
 	}
 
-	// Calculate the total price.
+	// calculate the total price.
 	totalPrice := price * float64(quantity)
 
-	// Prepare statement for inserting data into the cart table.
+	// prepare statement for inserting data into the cart table.
 	stmt, err := db.Prepare("INSERT INTO cart (user_id, product_id, quantity, price, total_price) VALUES ($1, $2, $3, $4, $5)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	// Execute the prepared statement with the user's data.
+	// execute the prepared statement with the user's data.
 	_, err = stmt.Exec(userID, productID, quantity, price, totalPrice)
 	if err != nil {
 		return err
