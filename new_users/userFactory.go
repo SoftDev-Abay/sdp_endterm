@@ -7,7 +7,46 @@ import (
 	db "shop/db_f"
 )
 
+// Define the IUserFactory interface
+type IUserFactory interface {
+	CreateUser(username, password, email, phoneNum string, balance int) (User, error)
+}
+
+// Define the AdminUserFactory which will create users with admin permissions
+type AdminUserFactory struct{}
+
+func (f *AdminUserFactory) CreateUser(username, password, email, phoneNum string, balance int) (User, error) {
+	user := User{
+		Username:    username,
+		Password:    password,
+		Email:       email,
+		PhoneNum:    phoneNum,
+		Admin:       true,
+		Balance:     balance,
+		Permissions: &AdminPermissions{},
+	}
+	return user, nil
+}
+
+// Define the RegularUserFactory which will create users with regular permissions
+type RegularUserFactory struct{}
+
+func (f *RegularUserFactory) CreateUser(username, password, email, phoneNum string, balance int) (User, error) {
+	user := User{
+		Username:    username,
+		Password:    password,
+		Email:       email,
+		PhoneNum:    phoneNum,
+		Admin:       false,
+		Balance:     balance,
+		Permissions: &UserPermissions{},
+	}
+	return user, nil
+}
+
+// User struct represents a user in the system.
 type User struct {
+	UserID      int
 	Username    string
 	Password    string
 	Email       string
@@ -17,8 +56,12 @@ type User struct {
 	Permissions iPermissionStrategy
 }
 
-func RegisterUser(user User) error { // Added isAdmin parameter.
-	db := db.GetDBInstance()
+// The Register function takes a factory, which will provide the mechanism to create a User with the correct permissions.
+func Register(factory IUserFactory, username, password, email, phoneNum string, balance int) error {
+	user, err := factory.CreateUser(username, password, email, phoneNum, balance)
+	if err != nil {
+		return err
+	}
 
 	// Hash the password before storing it in your database.
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -26,15 +69,10 @@ func RegisterUser(user User) error { // Added isAdmin parameter.
 		return err
 	}
 
-	if user.Admin {
-		user.Permissions = &AdminPermissions{}
-	} else {
-		// Assuming you have a similar struct for regular users
-		user.Permissions = &UserPermissions{}
-	}
-
 	// Insert the new user into the database.
-	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin, balance) VALUES ($1, $2, $3, $4, $5, $6)", user.Username, string(hashedPassword), user.Email, user.PhoneNum, user.Admin, user.Balance)
+	db := db.GetDBInstance()
+	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin, balance) VALUES ($1, $2, $3, $4, $5, $6)",
+		user.Username, string(hashedPassword), user.Email, user.PhoneNum, user.Admin, user.Balance)
 	if err != nil {
 		return err
 	}
@@ -42,32 +80,37 @@ func RegisterUser(user User) error { // Added isAdmin parameter.
 	return nil
 }
 
-func LoginUser(username, password string) (userID int, balance int, permissions iPermissionStrategy, err error) {
+func LoginUser(username, password string) (User, error) {
+	var user User
 	var hashedPassword string
 	var isAdmin bool
-	db := db.GetDBInstance()
+	dbInstance := db.GetDBInstance()
 
 	// Query the database for the hashed password and admin flag based on the username
-	err = db.QueryRow("SELECT user_id, balance, password, admin FROM users WHERE username = $1", username).Scan(&userID, &balance, &hashedPassword, &isAdmin)
+	err := dbInstance.QueryRow("SELECT user_id, balance, password, admin FROM users WHERE username = $1", username).Scan(&user.UserID, &user.Balance, &hashedPassword, &isAdmin)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, 0, nil, errors.New("user not found")
+			return User{}, errors.New("user not found")
 		}
-		return 0, 0, nil, err
+		return User{}, err
 	}
 
 	// Compare the hashed password from the database with the one the user provided.
 	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
-		return 0, 0, nil, errors.New("invalid password")
+		return User{}, errors.New("invalid password")
 	}
 
 	// Set permissions based on the isAdmin value
 	if isAdmin {
-		permissions = &AdminPermissions{}
+		user.Permissions = &AdminPermissions{}
 	} else {
-		// Assuming you have a regular user permissions strategy
-		permissions = &UserPermissions{}
+		user.Permissions = &UserPermissions{}
 	}
 
-	return userID, balance, permissions, nil
+	return user, nil
+}
+
+func (u *User) HasAdminPermissions() bool {
+	_, ok := u.Permissions.(*AdminPermissions)
+	return ok
 }

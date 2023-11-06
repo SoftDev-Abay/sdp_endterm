@@ -44,60 +44,75 @@ func main() {
 		scanner.Scan()
 		password := scanner.Text()
 
-		userID, balance, permissions, err := new_users.LoginUser(username, password)
+		// LoginUser now returns a User object, so update the variable names and usage accordingly.
+		user, err := new_users.LoginUser(username, password)
 		if err != nil {
 			fmt.Println("Error logging in:", err)
 			return
 		}
-		currentUserID = userID
-		currentUserBalance = balance
 
-		// Check if the permissions type is AdminPermissions to determine if the user is an admin.
+		// The user variable already contains the balance and permissions
+		currentUserID = user.UserID
+		currentUserBalance = user.Balance
 		currentUserIsAdmin = false // Assume the user is not an admin by default.
-		if _, ok := permissions.(*new_users.AdminPermissions); ok {
-			currentUserIsAdmin = true
+		if _, ok := user.Permissions.(*new_users.AdminPermissions); ok {
+			currentUserIsAdmin = true // Set to true if the permissions type is AdminPermissions
 		}
 
 		fmt.Println("Logged in successfully!")
 
 	case "2":
-		var user new_users.User
+		var factory new_users.IUserFactory
+		var isAdmin bool // This should be set based on your application logic or user input
+
 		fmt.Println("Choose a username:")
 		scanner.Scan()
-		user.Username = scanner.Text()
+		username := scanner.Text()
 
 		fmt.Println("Choose a password:")
 		scanner.Scan()
-		user.Password = scanner.Text()
+		password := scanner.Text()
 
 		fmt.Println("Enter your email:")
 		scanner.Scan()
-		user.Email = scanner.Text()
+		email := scanner.Text()
 
 		fmt.Println("Enter your phone number:")
 		scanner.Scan()
-		user.PhoneNum = scanner.Text()
+		phoneNum := scanner.Text()
 
 		fmt.Println("Enter your balance:")
 		scanner.Scan()
-		BalanceStr := scanner.Text()
+		balanceStr := scanner.Text()
 
-		BalanceInt, err := strconv.Atoi(BalanceStr)
-		user.Balance = BalanceInt
+		balance, err := strconv.Atoi(balanceStr)
 		if err != nil {
-			fmt.Println("Error:", err)
+			fmt.Println("Error parsing balance:", err)
+			return
 		}
 
-		user.Admin = false
+		// Decide whether the new user is an admin or not.
+		// This could be another question to the user or based on your business logic.
+		fmt.Println("Is the user an admin? (yes/no):")
+		scanner.Scan()
+		isAdminInput := scanner.Text()
+		isAdmin = strings.ToLower(isAdminInput) == "yes"
 
-		if err := new_users.RegisterUser(user); err != nil {
+		if isAdmin {
+			factory = &new_users.AdminUserFactory{}
+		} else {
+			factory = &new_users.RegularUserFactory{}
+		}
+
+		// Use the factory to create and register the user
+		err = new_users.Register(factory, username, password, email, phoneNum, balance)
+		if err != nil {
 			fmt.Println("Error registering:", err)
 			return
 		}
 
 		fmt.Println("Registered successfully! You can now login.")
 		return
-
 	case "3":
 		fmt.Println("Bye!")
 		return
