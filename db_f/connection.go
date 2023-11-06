@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"shop/products"
-	"shop/users"
 	"sync"
 
 	_ "github.com/lib/pq"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -43,133 +41,6 @@ func getDB() *sql.DB {
 
 func GetDBInstance() *sql.DB {
 	return getDB()
-}
-
-func GetUsers() ([]users.IUser, error) {
-	db := GetDBInstance()
-	rows, err := db.Query("SELECT * FROM users")
-	if err != nil {
-		// handle this error better than this
-		return nil, err
-	}
-	var usersArr []users.IUser
-	defer rows.Close()
-	for rows.Next() {
-		var id int
-		var username string
-		var userpassword string
-		var email string
-		var phoneNum string
-		var isAdmin bool
-		err = rows.Scan(&id, &username, &userpassword, &email, &phoneNum, &isAdmin)
-		if err != nil {
-			// handle this error
-			return nil, err
-		}
-		var user users.IUser
-		if isAdmin {
-			user = &users.Admin{Id: id, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
-		} else {
-			user = &users.Customer{Id: id, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
-
-		}
-		usersArr = append(usersArr, user)
-	}
-	// get any error encountered during iteration
-	err = rows.Err()
-	if err != nil {
-		return nil, err
-	}
-	return usersArr, nil
-}
-
-// LoginUser checks user credentials against the database.
-func LoginUser(username, password string) (userID, balance int, isAdmin bool, err error) {
-	var hashedPassword string
-
-	// Query the database for the hashed password and admin flag based on the username
-	err = db.QueryRow("SELECT user_id, balance, password, admin FROM users WHERE username = $1", username).Scan(&userID, &balance, &hashedPassword, &isAdmin)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, 0, false, errors.New("user not found")
-		}
-		return 0, 0, false, err
-	}
-
-	// Compare the hashed password from the database with the one the user provided.
-	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
-		return 0, 0, false, errors.New("invalid password")
-	}
-
-	return userID, balance, isAdmin, nil
-}
-
-func RegisterUser(username, password, email, phoneNum string, admin bool, balance int) error {
-	admin = false
-	// hashing the password before storing in database
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec("INSERT INTO users (username, password, email, phone_num, admin, balance) VALUES ($1, $2, $3, $4, $5, $6)", username, string(hashedPassword), email, phoneNum, admin, balance)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func InsertUser(username, password, email, phoneNum string, admin bool) error {
-	var user users.IUser
-
-	if admin {
-		user = &users.Admin{
-			UserName:     username,
-			UserPassword: password,
-			Email:        email,
-			PhoneNum:     phoneNum,
-		}
-	} else {
-		user = &users.Customer{
-			UserName:     username,
-			UserPassword: password,
-			Email:        email,
-			PhoneNum:     phoneNum,
-		}
-	}
-
-	err := UserInsert(user)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func UserInsert(user users.IUser) error {
-	db := GetDBInstance()
-
-	sqlInsertUser := `
-	INSERT INTO users (username, password, email, phone_num, admin)
-	VALUES ($1, $2, $3, $4, $5)`
-	var errUser error
-
-	switch u := user.(type) {
-	case *users.Admin:
-		_, errUser = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, true)
-
-	case *users.Customer:
-		_, errUser = db.Exec(sqlInsertUser, u.UserName, u.UserPassword, u.Email, u.PhoneNum, false)
-
-	default:
-		return errors.New("invalid user type")
-	}
-
-	if errUser != nil {
-		return errUser
-	}
-	return nil
 }
 
 func BuyProducts(userID int) (int, error) {
@@ -229,81 +100,22 @@ func BuyProducts(userID int) (int, error) {
 	return newBalance, nil
 }
 
-func CheckUser(username string, userpassword string) users.IUser {
-	db := GetDBInstance()
-
-	sqlCheckUser := `
-	SELECT *
-	FROM users
-	WHERE username = $1 AND password = $2`
-	var userId int
-	var phoneNum string
-	var email string
-	var isAdmin bool
-
-	row := db.QueryRow(sqlCheckUser, username, userpassword)
-	switch err := row.Scan(&userId, &username, &userpassword, &email, &phoneNum, &isAdmin); err {
-	case sql.ErrNoRows:
-		fmt.Println("No rows were returned!")
-		return nil
-	case nil:
-		if isAdmin {
-			return &users.Admin{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
-		} else {
-			return &users.Customer{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}
-		}
-	default:
-		panic(err)
-	}
-}
-
-func GetUserById(id int) (users.IUser, error) {
+func GetUserId(username string) (int, error) {
 	db := GetDBInstance()
 
 	sqlGetUserById := `
-	SELECT *
+	SELECT user_id
 	FROM users
-	WHERE user_id = $1`
-	var userId int
-	var username string
-	var userpassword string
-	var email string
-	var phoneNum string
-	var isAdmin bool
+	WHERE username = $1`
+	var id int
+	row := db.QueryRow(sqlGetUserById, username)
 
-	row := db.QueryRow(sqlGetUserById, id)
-	switch err := row.Scan(&userId, &username, &userpassword, &email, &phoneNum, &isAdmin); err {
-	case sql.ErrNoRows:
-		fmt.Println("No rows were returned!")
-		return nil, err
-	case nil:
-		if isAdmin {
-			return &users.Admin{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}, nil
-		} else {
-			return &users.Customer{Id: userId, UserName: username, UserPassword: userpassword, Email: email, PhoneNum: phoneNum}, nil
-		}
-	default:
-		panic(err)
-	}
-}
+	err := row.Scan(&id)
 
-func UpdateUser(user users.IUser) (users.IUser, error) {
-	db := GetDBInstance()
-	sqlUpdateUser := `UPDATE users SET username = $2, password = $3, email = $4, phone_num = $5, admin = $6 WHERE user_id = $1`
-	id, username, password, email, phoneNum := user.GetDetails()
-	var isAdmin bool
-	switch user.(type) {
-	case *users.Admin:
-		isAdmin = true
-	case *users.Customer:
-		isAdmin = false
-	}
-
-	_, err := db.Exec(sqlUpdateUser, id, username, password, email, phoneNum, isAdmin)
 	if err != nil {
-		return user, err
+		return 0, err
 	}
-	return user, nil
+	return id, nil
 }
 
 func GetProductById(id int) (products.Product, error) {
@@ -381,9 +193,123 @@ func InsertProduct(product products.Product) (products.Product, error) {
 		}
 	}
 
+	CreateNotification(fmt.Sprintf("New product was added to the shop! Product name: %v", product.Name))
+
 	product.Id = id
 	return product, nil
 }
+
+func CreateNotification(text string) error {
+	db := GetDBInstance()
+
+	sqlInsert := `
+	INSERT INTO notifications(text) VALUES($1) RETURNING id`
+
+	_, err := db.Exec(sqlInsert, text)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func GetNotifications() (map[int]string, error) {
+	db := GetDBInstance()
+	rows, err := db.Query("SELECT id,text FROM notifications")
+	if err != nil {
+		// handle this error better than this
+		return nil, err
+	}
+	notifications := make(map[int]string)
+	defer rows.Close()
+	for rows.Next() {
+		var notification_id int
+		var text string
+		err = rows.Scan(&notification_id, &text)
+		if err != nil {
+			// handle this error
+			return nil, err
+		}
+		notifications[notification_id] = text
+	}
+	// get any error encountered during iteration
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	return notifications, nil
+}
+
+func AddNotificationToUser(userID, notificationID int) error {
+	db := GetDBInstance()
+
+	_, err := db.Exec("INSERT INTO users_notifications(user_id, notification_id) VALUES($1, $2)", userID, notificationID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Function to get notifications for a user
+func GetNotificationsForUserByID(userID int) (map[int]string, error) {
+	db := GetDBInstance()
+	rows, err := db.Query("SELECT nu.id, n.text FROM notifications n INNER JOIN users_notifications nu ON n.id = nu.notification_id WHERE nu.user_id = $1", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	notifications := make(map[int]string)
+	for rows.Next() {
+		var text string
+		var id int
+		if err := rows.Scan(&id, &text); err != nil {
+			return nil, err
+		}
+		notifications[id] = text
+	}
+	return notifications, nil
+}
+
+func GetNotificationsForUserByUsername(username string) (map[int]string, error) {
+	db := GetDBInstance()
+	rows, err := db.Query("SELECT nu.id, n.text FROM notifications n INNER JOIN users_notifications nu ON n.id = nu.notification_id INNER JOIN users u ON u.id = nu.user_id WHERE u.username = $1", username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	notifications := make(map[int]string)
+	for rows.Next() {
+		var text string
+		var id int
+		if err := rows.Scan(&id, &text); err != nil {
+			return nil, err
+		}
+		notifications[id] = text
+	}
+	return notifications, nil
+}
+
+func ClearAllNotifications() error {
+	db := GetDBInstance()
+	_, err := db.Exec("DELETE FROM notifications")
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec("DELETE FROM users_notifications")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Function to mark a notification as seen by a user
+// func MarkNotificationAsSeen(userID, notificationID int) error {
+// 	db := GetDBInstance()
+// 	_, err := db.Exec("UPDATE users_notifications SET seen = true WHERE user_id = $1 AND notification_id = $2", userID, notificationID)
+// 	return err
+// }
 
 func AddToCart(userID, productID, quantity int) error {
 	db := GetDBInstance()
@@ -688,6 +614,6 @@ const (
 	host     = "localhost"
 	port     = 5432
 	user     = "postgres"
-	password = "123412"
+	password = "031216551248"
 	dbname   = "db_shop"
 )
