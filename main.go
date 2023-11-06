@@ -6,6 +6,7 @@ import (
 	"os"
 	db "shop/db_f"
 	"shop/new_users"
+	notifications "shop/notifications"
 	"shop/products"
 	"strconv"
 	"strings"
@@ -30,6 +31,13 @@ func main() {
 	fmt.Println("2. Registration")
 	fmt.Println("3. Exit")
 	fmt.Print("Enter option: ")
+
+	UserObservers := notifications.UserSubject{}
+	err := UserObservers.RegisterAllUsers()
+	if err != nil {
+		fmt.Println("Error registering all users:", err)
+		return
+	}
 
 	scanner.Scan()
 	action := scanner.Text()
@@ -112,8 +120,9 @@ func main() {
 		fmt.Printf("Your current balance: %v\n", currentUserBalance)
 		fmt.Println("1. Buy Product")
 		fmt.Println("2. Cart")
-		fmt.Println("3. Exit")
-		fmt.Println("4. Admin Panel (if you are admin)")
+		fmt.Println("3. Notifications")
+		fmt.Println("4. Exit")
+		fmt.Println("5. Admin Panel (if you are admin)")
 		fmt.Print("Enter option: ")
 
 		option, _ := reader.ReadString('\n')
@@ -196,23 +205,34 @@ func main() {
 					break
 				}
 			}
-
 		case "3":
+			fmt.Println("Viewing your notifications:")
+			notifications, err := db.GetNotificationsForUserByID(currentUserID)
+			if err != nil {
+				fmt.Println("Error retrieving notifications:", err)
+				continue
+			}
+			for _, text := range notifications {
+				fmt.Println(text)
+			}
+		case "4":
 			fmt.Println("Thank you for visiting Go Shop!")
 			return
 
-		case "4":
+		case "5":
 			if currentUserIsAdmin {
 				for {
 					fmt.Println("Hello, Admin!")
 					fmt.Println("1. Delete Product by iD")
 					fmt.Println("2. Add Product")
 					fmt.Println("3. Add Category")
-					fmt.Println("4. Exit Admin console")
+					fmt.Println("4. Show observers")
+					fmt.Println("5. Clear all notifications")
+					fmt.Println("6. Exit Admin console")
 					adminOption, _ := reader.ReadString('\n')
 					adminOption = strings.TrimSpace(adminOption)
 
-					if adminOption == "4" {
+					if adminOption == "6" {
 						fmt.Println("bye!")
 						break
 					}
@@ -235,6 +255,8 @@ func main() {
 						// haha okay
 						fmt.Println("Adding product:")
 						addProduct(reader)
+						fmt.Println("successfully added product !")
+						UserObservers.NotifyObservers()
 					case "3":
 						fmt.Println("Enter new category name please")
 						categoryNameInput, _ := reader.ReadString('\n')
@@ -245,6 +267,19 @@ func main() {
 							continue
 						}
 						fmt.Println("successfully added category !")
+					case "4":
+						fmt.Println("Viewing observers:")
+						observers := UserObservers.GetObservers()
+						for _, observer := range observers {
+							fmt.Printf("Observer: %v\n", observer)
+						}
+					case "5":
+						fmt.Println("Clearing all notifications:")
+						err := db.ClearAllNotifications()
+						if err != nil {
+							fmt.Println("Error clearing notifications:", err)
+							continue
+						}
 					}
 				}
 			} else {
