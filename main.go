@@ -44,44 +44,53 @@ func main() {
 		scanner.Scan()
 		password := scanner.Text()
 
-		userID, balance, isAdmin, err := db.LoginUser(username, password)
+		userID, balance, permissions, err := new_users.LoginUser(username, password)
 		if err != nil {
 			fmt.Println("Error logging in:", err)
 			return
 		}
 		currentUserID = userID
-		currentUserIsAdmin = isAdmin
 		currentUserBalance = balance
+
+		// Check if the permissions type is AdminPermissions to determine if the user is an admin.
+		currentUserIsAdmin = false // Assume the user is not an admin by default.
+		if _, ok := permissions.(*new_users.AdminPermissions); ok {
+			currentUserIsAdmin = true
+		}
 
 		fmt.Println("Logged in successfully!")
 
 	case "2":
+		var user new_users.User
 		fmt.Println("Choose a username:")
 		scanner.Scan()
-		username := scanner.Text()
+		user.Username = scanner.Text()
 
 		fmt.Println("Choose a password:")
 		scanner.Scan()
-		password := scanner.Text()
+		user.Password = scanner.Text()
 
 		fmt.Println("Enter your email:")
 		scanner.Scan()
-		email := scanner.Text()
+		user.Email = scanner.Text()
 
 		fmt.Println("Enter your phone number:")
 		scanner.Scan()
-		phoneNum := scanner.Text()
+		user.PhoneNum = scanner.Text()
 
 		fmt.Println("Enter your balance:")
 		scanner.Scan()
-		balance := scanner.Text()
+		BalanceStr := scanner.Text()
 
-		intbalance, err := strconv.Atoi(balance)
+		BalanceInt, err := strconv.Atoi(BalanceStr)
+		user.Balance = BalanceInt
 		if err != nil {
 			fmt.Println("Error:", err)
 		}
 
-		if err := db.RegisterUser(username, password, email, phoneNum, false, intbalance); err != nil {
+		user.Admin = false
+
+		if err := new_users.RegisterUser(user); err != nil {
 			fmt.Println("Error registering:", err)
 			return
 		}
