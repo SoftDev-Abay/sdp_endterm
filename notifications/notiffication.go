@@ -68,8 +68,8 @@ func (u *UserNotificationSubject) RemoveObserver(observer Observer) {
 
 func (u *UserNotificationSubject) NotifyObservers() {
 	for _, observer := range u.observers {
-		user := observer.(*new_users.User) // type assertion to get the user object from the observer interface
-		err := user.Update()               // call the update method on the user object
+		user := observer.(*new_users.User)
+		err := user.Update()
 		if err != nil {
 			fmt.Println("Error updating user:", err)
 		}

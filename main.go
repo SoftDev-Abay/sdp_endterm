@@ -260,6 +260,7 @@ func main() {
 							fmt.Println("Error getting product details:", err)
 							break
 						}
+
 						addProductCmd := &commands.AddProductCommand{
 							Product: products.Product{
 								Name:     name,
@@ -269,7 +270,10 @@ func main() {
 							},
 						}
 
-						if err := addProductCmd.Execute(); err != nil {
+						addProductInvoker := commands.CommandInvoker{}
+						addProductInvoker.SetCommand(addProductCmd)
+
+						if err := addProductInvoker.ExecuteCommand(); err != nil {
 							fmt.Println("Error adding product:", err)
 						} else {
 							fmt.Println("Product added successfully!")
@@ -320,28 +324,23 @@ func viewProducts() {
 	fmt.Println("\nList of Products:")
 	for _, product := range productsList {
 		id, name, price, desc, categories := product.GetDetails()
-		fmt.Printf("ID: %d, Name: %s, Price: %d, Description: %s, Categories: %v\n", id, name, price, desc, categories)
+		fmt.Printf("ID: %d, Name: %s, Price: %d, Description: %s\n", id, name, price, desc)
+		fmt.Print(" Categories:")
+		for _, name := range categories {
+			fmt.Print(name, " ")
+		}
+		fmt.Println()
+
 	}
-}
-
-func addProduct(name, desc string, price int, productCategoryMap map[int]string) {
-	newProduct := products.Product{Name: name, Desc: desc, Price: price, Category: productCategoryMap}
-	addProductCmd := &commands.AddProductCommand{Product: newProduct}
-
-	// Execute the command
-	if err := addProductCmd.Execute(); err != nil {
-		fmt.Println("Error adding product:", err)
-		return
-	}
-
-	fmt.Println("Product added successfully!")
 }
 
 func deleteProduct(productID int) {
 	deleteProductCmd := &commands.DeleteProductCommand{ProductID: productID}
+	deleteInvoker := commands.CommandInvoker{}
+	deleteInvoker.SetCommand(deleteProductCmd)
 
 	// Execute the command
-	if err := deleteProductCmd.Execute(); err != nil {
+	if err := deleteInvoker.ExecuteCommand(); err != nil {
 		fmt.Println("Error deleting product:", err)
 		return
 	}

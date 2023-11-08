@@ -156,11 +156,17 @@ func GetProducts() ([]products.Product, error) {
 			// handle this error
 			return nil, err
 		}
+		categoriesMap, err := GetProductCategoriesMap(id)
+		if err != nil {
+			return nil, err
+		}
+
 		product := products.Product{
-			Id:    id,
-			Name:  name,
-			Desc:  desc,
-			Price: price,
+			Id:       id,
+			Name:     name,
+			Desc:     desc,
+			Price:    price,
+			Category: categoriesMap,
 		}
 		productsArr = append(productsArr, product)
 	}
