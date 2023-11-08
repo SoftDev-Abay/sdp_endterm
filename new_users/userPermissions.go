@@ -17,3 +17,7 @@ func (up *UserPermissions) CanBuyProduct() bool {
 func (up *UserPermissions) CanViewProduct() bool {
 	return true
 }
+
+func (up *UserPermissions) CanAddNotification() bool {
+	return false
+}

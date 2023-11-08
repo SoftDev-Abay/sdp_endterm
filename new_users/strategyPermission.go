@@ -5,4 +5,5 @@ type iPermissionStrategy interface {
 	CanDeleteProduct() bool
 	CanBuyProduct() bool
 	CanViewProduct() bool
+	CanAddNotification() bool
 }

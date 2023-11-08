@@ -17,3 +17,7 @@ func (ap *AdminPermissions) CanBuyProduct() bool {
 func (ap *AdminPermissions) CanViewProduct() bool {
 	return true
 }
+
+func (ap *AdminPermissions) CanAddNotification() bool {
+	return true
+}
