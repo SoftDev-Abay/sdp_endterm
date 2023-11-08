@@ -33,8 +33,8 @@ func main() {
 	fmt.Println("3. Exit")
 	fmt.Print("Enter option: ")
 
-	UserObservers := notifications.UserSubject{}
-	err := UserObservers.RegisterAllUsers()
+	UserNotificationObservers := notifications.UserNotificationSubject{}
+	err := UserNotificationObservers.RegisterAllUsers()
 	if err != nil {
 		fmt.Println("Error registering all users:", err)
 		return
@@ -273,8 +273,8 @@ func main() {
 							fmt.Println("Error adding product:", err)
 						} else {
 							fmt.Println("Product added successfully!")
+							UserNotificationObservers.AddNotification("New product added " + name)
 						}
-             UserObservers.NotifyObservers()
 					case "3":
 						fmt.Println("Enter new category name please")
 						categoryNameInput, _ := reader.ReadString('\n')
@@ -287,7 +287,7 @@ func main() {
 						fmt.Println("successfully added category !")
 					case "4":
 						fmt.Println("Viewing observers:")
-						observers := UserObservers.GetObservers()
+						observers := UserNotificationObservers.GetObservers()
 						for _, observer := range observers {
 							fmt.Printf("Observer: %v\n", observer)
 						}

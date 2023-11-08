@@ -16,15 +16,24 @@ type Subject interface {
 	NotifyObservers()
 }
 
-type UserSubject struct {
+type UserNotificationSubject struct {
 	observers []Observer
 }
 
-func (u *UserSubject) GetObservers() []Observer {
+func (u *UserNotificationSubject) AddNotification(text string) error {
+	err := db.CreateNotification(text)
+	if err != nil {
+		return err
+	}
+	u.NotifyObservers()
+	return nil
+}
+
+func (u *UserNotificationSubject) GetObservers() []Observer {
 	return u.observers
 }
 
-func (u *UserSubject) RegisterAllUsers() error {
+func (u *UserNotificationSubject) RegisterAllUsers() error {
 	db := db.GetDBInstance()
 	rows, err := db.Query("SELECT user_id, email, username FROM users")
 	if err != nil {
@@ -44,11 +53,11 @@ func (u *UserSubject) RegisterAllUsers() error {
 	return nil
 }
 
-func (u *UserSubject) RegisterObserver(observer Observer) {
+func (u *UserNotificationSubject) RegisterObserver(observer Observer) {
 	u.observers = append(u.observers, observer)
 }
 
-func (u *UserSubject) RemoveObserver(observer Observer) {
+func (u *UserNotificationSubject) RemoveObserver(observer Observer) {
 	for i, obs := range u.observers {
 		if obs == observer {
 			u.observers = append(u.observers[:i], u.observers[i+1:]...)
@@ -57,7 +66,7 @@ func (u *UserSubject) RemoveObserver(observer Observer) {
 	}
 }
 
-func (u *UserSubject) NotifyObservers() {
+func (u *UserNotificationSubject) NotifyObservers() {
 	for _, observer := range u.observers {
 		user := observer.(*new_users.User) // type assertion to get the user object from the observer interface
 		err := user.Update()               // call the update method on the user object

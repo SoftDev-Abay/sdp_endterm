@@ -193,8 +193,6 @@ func InsertProduct(product products.Product) (products.Product, error) {
 		}
 	}
 
-	CreateNotification(fmt.Sprintf("New product was added to the shop! Product name: %v", product.Name))
-
 	product.Id = id
 	return product, nil
 }
